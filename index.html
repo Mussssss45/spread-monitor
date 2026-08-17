@@ -2,18 +2,21 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Spread Monitor</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
     --bg:#0b0d10;
     --panel:#12151a;
+    --panel2:#171b21;
     --line:#22262d;
     --text:#e7eaee;
     --dim:#7b8492;
     --up:#4fd68a;
     --hot:#ff7a4d;
+    --hot-bg:rgba(255,122,77,0.14);
+    --accent:#5b8cff;
     --mono: 'SF Mono', 'Roboto Mono', ui-monospace, Menlo, Consolas, monospace;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -24,52 +27,88 @@
   }
   header{
     position:sticky; top:0; z-index:5;
-    background:rgba(11,13,16,0.92); backdrop-filter:blur(8px);
+    background:rgba(11,13,16,0.95); backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);
-    padding:16px 18px 14px;
+    padding:16px 16px 12px;
   }
-  h1{font-size:17px; margin:0 0 2px; letter-spacing:0.2px; font-weight:650;}
+  h1{font-size:18px; margin:0 0 2px; letter-spacing:0.2px; font-weight:700;}
   .sub{font-size:12px; color:var(--dim); font-family:var(--mono);}
   .statusRow{display:flex; align-items:center; gap:8px; margin-top:10px;}
-  .dot{width:7px; height:7px; border-radius:50%; background:var(--dim);}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--dim); flex-shrink:0;}
   .dot.live{background:var(--up); box-shadow:0 0 6px var(--up);}
   .statusText{font-size:11.5px; color:var(--dim); font-family:var(--mono);}
   .refreshBtn{
-    margin-left:auto; background:var(--panel); border:1px solid var(--line);
+    margin-left:auto; background:var(--panel2); border:1px solid var(--line);
     color:var(--text); font-size:12px; padding:6px 12px; border-radius:20px;
     font-family:var(--mono);
   }
   .refreshBtn:active{opacity:0.6;}
+  .topSpread{
+    margin-top:12px; display:flex; align-items:center; gap:8px;
+    background:var(--hot-bg); border:1px solid rgba(255,122,77,0.3);
+    border-radius:10px; padding:8px 12px; font-size:12.5px;
+  }
+  .topSpread b{color:var(--hot); font-family:var(--mono); font-size:14px;}
 
-  main{padding:14px 14px 0;}
+  .controls{padding:12px 16px 0;}
+  .controlRow{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .searchInput{
+    flex:1; background:var(--panel); border:1px solid var(--line); color:var(--text);
+    border-radius:10px; padding:9px 12px; font-size:14px; outline:none;
+  }
+  .sortSelect{
+    background:var(--panel); border:1px solid var(--line); color:var(--text);
+    border-radius:10px; padding:9px 10px; font-size:13px; font-family:var(--mono);
+  }
+  .thresholdBox{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px; margin-bottom:12px;
+  }
+  .thresholdLabel{
+    display:flex; justify-content:space-between; font-size:12.5px; color:var(--dim);
+    margin-bottom:8px;
+  }
+  .thresholdLabel b{color:var(--hot); font-family:var(--mono); font-size:14px;}
+  input[type="range"]{
+    width:100%; accent-color:var(--hot); height:4px;
+  }
+  .toggleRow{display:flex; gap:8px; margin-top:10px;}
+  .toggleBtn{
+    flex:1; background:var(--panel2); border:1px solid var(--line); color:var(--dim);
+    padding:7px 0; border-radius:8px; font-size:12px; text-align:center;
+  }
+  .toggleBtn.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+
+  main{padding:6px 14px 0;}
   .card{
     background:var(--panel); border:1px solid var(--line); border-radius:14px;
-    margin-bottom:10px; overflow:hidden;
+    margin-bottom:10px; overflow:hidden; transition:border-color 0.2s;
   }
+  .card.hot{border-color:rgba(255,122,77,0.45);}
   .cardHead{
     display:flex; align-items:center; justify-content:space-between;
-    padding:13px 15px; gap:10px;
+    padding:14px 15px; gap:10px; cursor:pointer;
   }
-  .tokenName{font-weight:650; font-size:15px;}
-  .tokenSources{font-size:11px; color:var(--dim); font-family:var(--mono); margin-top:2px;}
+  .tokenName{font-weight:700; font-size:16px; display:flex; align-items:center; gap:6px;}
+  .tokenSources{font-size:11px; color:var(--dim); font-family:var(--mono); margin-top:3px;}
   .spreadBadge{
-    font-family:var(--mono); font-size:13px; font-weight:600;
-    padding:5px 10px; border-radius:8px; background:#1a1e24; color:var(--dim);
+    font-family:var(--mono); font-size:14px; font-weight:700;
+    padding:6px 11px; border-radius:9px; background:#1a1e24; color:var(--dim);
     white-space:nowrap;
   }
-  .spreadBadge.hot{background:rgba(255,122,77,0.14); color:var(--hot);}
+  .spreadBadge.hot{background:var(--hot-bg); color:var(--hot);}
   .priceLine{
     display:flex; justify-content:space-between; font-family:var(--mono);
-    font-size:12.5px; padding:0 15px 12px; color:var(--dim);
+    font-size:12.5px; padding:0 15px 13px; color:var(--dim);
   }
   .priceLine b{color:var(--text); font-weight:600;}
   .detail{
-    border-top:1px solid var(--line); padding:10px 15px 13px; display:none;
+    border-top:1px solid var(--line); padding:11px 15px 13px; display:none;
   }
   .detail.open{display:block;}
   .detailRow{
-    display:flex; justify-content:space-between; font-family:var(--mono);
-    font-size:12px; padding:4px 0; color:var(--dim);
+    display:flex; justify-content:space-between; align-items:center; font-family:var(--mono);
+    font-size:12px; padding:5px 0; color:var(--dim);
   }
   .detailRow span:last-child{color:var(--text);}
   .tag{
@@ -77,87 +116,114 @@
     color:var(--dim); background:#1a1e24; padding:2px 6px; border-radius:5px;
     margin-right:6px;
   }
-  .empty{color:var(--dim); font-size:12px; padding:12px 15px; font-family:var(--mono);}
-  footer{padding:18px 18px 30px; font-size:11px; color:var(--dim); line-height:1.6;}
-  footer a{color:var(--dim);}
+  .copyBtn{
+    background:none; border:none; color:var(--accent); font-size:11px;
+    font-family:var(--mono); padding:4px 0 0; text-align:left;
+  }
+  .empty{color:var(--dim); font-size:13px; padding:30px 15px; text-align:center; font-family:var(--mono);}
+  .skeleton{
+    height:70px; background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    margin-bottom:10px; opacity:0.5; animation:pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:0.35;} 50%{opacity:0.6;}}
+  footer{padding:20px 18px 30px; font-size:11px; color:var(--dim); line-height:1.6;}
 </style>
 </head>
 <body>
 
 <header>
   <h1>Spread Monitor</h1>
-  <div class="sub">CEX vs DEX · реальные цены, без выдумок</div>
+  <div class="sub">CEX vs DEX · реальные цены</div>
   <div class="statusRow">
     <div class="dot" id="dot"></div>
     <div class="statusText" id="status">запуск…</div>
     <button class="refreshBtn" id="refreshBtn">Обновить</button>
   </div>
+  <div class="topSpread" id="topSpread" style="display:none"></div>
 </header>
 
-<main id="main"></main>
+<div class="controls">
+  <div class="thresholdBox">
+    <div class="thresholdLabel">
+      <span>Порог "горячего" спреда</span>
+      <b id="thresholdVal">10%</b>
+    </div>
+    <input type="range" id="thresholdSlider" min="5" max="100" step="1" value="10">
+    <div class="toggleRow">
+      <div class="toggleBtn active" id="showAllBtn">Все токены</div>
+      <div class="toggleBtn" id="showHotBtn">Только выше порога</div>
+    </div>
+  </div>
+  <div class="controlRow">
+    <input class="searchInput" id="searchInput" placeholder="Поиск токена…">
+    <select class="sortSelect" id="sortSelect">
+      <option value="spread">По спреду ↓</option>
+      <option value="name">По имени</option>
+    </select>
+  </div>
+</div>
+
+<main id="main">
+  <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+</main>
 
 <footer>
   Источники: публичные REST API бирж (Binance, OKX, Bybit, KuCoin, Gate.io, MEXC, Bitget,
   Coinbase, Kraken) + DexScreener для DEX-пулов (Uniswap, PancakeSwap, SushiSwap, Curve и др.).
-  Обновление раз в 60 сек. Если биржа недоступна из вашего региона или временно не отвечает —
-  она просто пропускается в расчёте.
+  Обновление раз в 60 сек. Недоступные биржи автоматически пропускаются в расчёте.
 </footer>
 
 <script>
-const TOKENS = [
-  { symbol:"BTC",  cexPairs:{binance:"BTCUSDT",okx:"BTC-USDT",bybit:"BTCUSDT",kucoin:"BTC-USDT",gateio:"BTC_USDT",mexc:"BTCUSDT",bitget:"BTCUSDT",coinbase:"BTC-USD",kraken:"XBTUSDT"}, dex:"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599" },
-  { symbol:"ETH",  cexPairs:{binance:"ETHUSDT",okx:"ETH-USDT",bybit:"ETHUSDT",kucoin:"ETH-USDT",gateio:"ETH_USDT",mexc:"ETHUSDT",bitget:"ETHUSDT",coinbase:"ETH-USD",kraken:"ETHUSDT"}, dex:"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" },
-  { symbol:"SOL",  cexPairs:{binance:"SOLUSDT",okx:"SOL-USDT",bybit:"SOLUSDT",kucoin:"SOL-USDT",gateio:"SOL_USDT",mexc:"SOLUSDT",bitget:"SOLUSDT",coinbase:"SOL-USD",kraken:"SOLUSDT"}, dex:"So11111111111111111111111111111111111111112" },
-  { symbol:"BNB",  cexPairs:{binance:"BNBUSDT",okx:"BNB-USDT",bybit:"BNBUSDT",kucoin:"BNB-USDT",gateio:"BNB_USDT",mexc:"BNBUSDT",bitget:"BNBUSDT",kraken:"BNBUSDT"}, dex:"0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c" },
-  { symbol:"LINK", cexPairs:{binance:"LINKUSDT",okx:"LINK-USDT",bybit:"LINKUSDT",kucoin:"LINK-USDT",gateio:"LINK_USDT",mexc:"LINKUSDT",bitget:"LINKUSDT",coinbase:"LINK-USD",kraken:"LINKUSDT"}, dex:"0x514910771af9ca656af840dff83e8264ecf986ca" },
-  { symbol:"AVAX", cexPairs:{binance:"AVAXUSDT",okx:"AVAX-USDT",bybit:"AVAXUSDT",kucoin:"AVAX-USDT",gateio:"AVAX_USDT",mexc:"AVAXUSDT",bitget:"AVAXUSDT",coinbase:"AVAX-USD",kraken:"AVAXUSDT"}, dex:"0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7" },
-];
+// --- Генератор пар для каждой биржи по единому base-символу ---
+function pairsFor(base) {
+  const b = base;
+  const krakenBase = b === "BTC" ? "XBT" : b;
+  return {
+    binance:  b + "USDT",
+    okx:      b + "-USDT",
+    bybit:    b + "USDT",
+    kucoin:   b + "-USDT",
+    gateio:   b + "_USDT",
+    mexc:     b + "USDT",
+    bitget:   b + "USDT",
+    coinbase: b + "-USD",
+    kraken:   krakenBase + "USDT",
+  };
+}
 
-// -- CEX fetchers: каждая биржа отдаёт данные в своём формате --
+const RAW_TOKENS = [
+  { symbol:"BTC",  dex:"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599" },
+  { symbol:"ETH",  dex:"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" },
+  { symbol:"SOL",  dex:"So11111111111111111111111111111111111111112" },
+  { symbol:"BNB",  dex:"0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c" },
+  { symbol:"LINK", dex:"0x514910771af9ca656af840dff83e8264ecf986ca" },
+  { symbol:"AVAX", dex:"0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7" },
+  { symbol:"UNI",  dex:"0x1f9840a85d5af5bf1d1762f925bdaddc4201f984" },
+  { symbol:"AAVE", dex:"0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9" },
+  { symbol:"MKR",  dex:"0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2" },
+  { symbol:"LDO",  dex:"0x5a98fcbea516cf06857215779fd812ca3bef1b32" },
+  { symbol:"CRV",  dex:"0xd533a949740bb3306d119cc777fa900ba034cd52" },
+  { symbol:"SHIB", dex:"0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce" },
+  { symbol:"PEPE", dex:"0x6982508145454ce325ddbe47a25d4ec3d2311933" },
+  { symbol:"SAND", dex:"0x3845badade8e6dff049820680d1f14bd3903a5d" },
+  { symbol:"MANA", dex:"0x0f5d2fb29fb7d3cfee444a200298f468908cc942" },
+  { symbol:"GRT",  dex:"0xc944e90c64b2c07662a292be6244bdf05cda44a7" },
+  { symbol:"ARB",  dex:"0x912ce59144191c1204e64559fe8253a0e49e6548" },
+  { symbol:"OP",   dex:"0x4200000000000000000000000000000000000042" },
+];
+const TOKENS = RAW_TOKENS.map(t => ({ ...t, cexPairs: pairsFor(t.symbol) }));
+
 const cexFetchers = {
-  binance: async (pair) => {
-    const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
-    const d = await r.json();
-    return parseFloat(d.price);
-  },
-  okx: async (pair) => {
-    const r = await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${pair}`);
-    const d = await r.json();
-    return parseFloat(d.data[0].last);
-  },
-  bybit: async (pair) => {
-    const r = await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${pair}`);
-    const d = await r.json();
-    return parseFloat(d.result.list[0].lastPrice);
-  },
-  kucoin: async (pair) => {
-    const r = await fetch(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${pair}`);
-    const d = await r.json();
-    return parseFloat(d.data.price);
-  },
-  gateio: async (pair) => {
-    const r = await fetch(`https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${pair}`);
-    const d = await r.json();
-    return parseFloat(d[0].last);
-  },
-  mexc: async (pair) => {
-    const r = await fetch(`https://api.mexc.com/api/v3/ticker/price?symbol=${pair}`);
-    const d = await r.json();
-    return parseFloat(d.price);
-  },
-  bitget: async (pair) => {
-    const r = await fetch(`https://api.bitget.com/api/v2/spot/market/tickers?symbol=${pair}`);
-    const d = await r.json();
-    return parseFloat(d.data[0].lastPr);
-  },
-  coinbase: async (pair) => {
-    const r = await fetch(`https://api.exchange.coinbase.com/products/${pair}/ticker`);
-    const d = await r.json();
-    return parseFloat(d.price);
-  },
-  kraken: async (pair) => {
-    const r = await fetch(`https://api.kraken.com/0/public/Ticker?pair=${pair}`);
-    const d = await r.json();
+  binance: async (p) => parseFloat((await (await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${p}`)).json()).price),
+  okx: async (p) => parseFloat((await (await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${p}`)).json()).data[0].last),
+  bybit: async (p) => parseFloat((await (await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${p}`)).json()).result.list[0].lastPrice),
+  kucoin: async (p) => parseFloat((await (await fetch(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${p}`)).json()).data.price),
+  gateio: async (p) => parseFloat((await (await fetch(`https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${p}`)).json())[0].last),
+  mexc: async (p) => parseFloat((await (await fetch(`https://api.mexc.com/api/v3/ticker/price?symbol=${p}`)).json()).price),
+  bitget: async (p) => parseFloat((await (await fetch(`https://api.bitget.com/api/v2/spot/market/tickers?symbol=${p}`)).json()).data[0].lastPr),
+  coinbase: async (p) => parseFloat((await (await fetch(`https://api.exchange.coinbase.com/products/${p}/ticker`)).json()).price),
+  kraken: async (p) => {
+    const d = await (await fetch(`https://api.kraken.com/0/public/Ticker?pair=${p}`)).json();
     const key = Object.keys(d.result)[0];
     return parseFloat(d.result[key].c[0]);
   },
@@ -165,9 +231,7 @@ const cexFetchers = {
 
 async function getCexPrices(token) {
   const entries = Object.entries(token.cexPairs);
-  const results = await Promise.allSettled(
-    entries.map(([ex, pair]) => cexFetchers[ex](pair))
-  );
+  const results = await Promise.allSettled(entries.map(([ex, pair]) => cexFetchers[ex](pair)));
   const prices = {};
   results.forEach((res, i) => {
     const [ex] = entries[i];
@@ -178,24 +242,19 @@ async function getCexPrices(token) {
 
 async function getDexPrices(address) {
   try {
-    const r = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
-    const d = await r.json();
+    const d = await (await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`)).json();
     const pairs = d.pairs || [];
     const bestPerDex = {};
     pairs.forEach(p => {
       const dexId = p.dexId, price = parseFloat(p.priceUsd);
       const liq = (p.liquidity && p.liquidity.usd) || 0;
       if (!dexId || !price) return;
-      if (!bestPerDex[dexId] || liq > bestPerDex[dexId].liq) {
-        bestPerDex[dexId] = { price, liq };
-      }
+      if (!bestPerDex[dexId] || liq > bestPerDex[dexId].liq) bestPerDex[dexId] = { price, liq };
     });
     const out = {};
     Object.entries(bestPerDex).forEach(([dex, v]) => out["DEX:" + dex] = v.price);
     return out;
-  } catch (e) {
-    return {};
-  }
+  } catch (e) { return {}; }
 }
 
 function fmtPrice(p) {
@@ -205,80 +264,158 @@ function fmtPrice(p) {
 }
 
 let openCards = new Set();
+let latestData = [];   // [{symbol, sources:[[src,price]], minSrc, minPrice, maxSrc, maxPrice, spread, dexAddress}]
+let threshold = 10;
+let showOnlyHot = false;
+let sortMode = "spread";
+let searchQuery = "";
+let lastLoadTime = null;
+let previouslyHot = new Set();
 
-async function loadAll() {
-  document.getElementById("dot").classList.remove("live");
-  document.getElementById("status").textContent = "обновление…";
-
-  const main = document.getElementById("main");
-  const cardsHtml = await Promise.all(TOKENS.map(async (token) => {
+async function fetchAllData() {
+  const results = await Promise.all(TOKENS.map(async (token) => {
     const [cex, dex] = await Promise.all([getCexPrices(token), getDexPrices(token.dex)]);
     const all = { ...cex, ...dex };
-    const sources = Object.entries(all);
-
-    if (sources.length < 2) {
-      return `<div class="card"><div class="cardHead">
-        <div><div class="tokenName">${token.symbol}</div>
-        <div class="tokenSources">недостаточно источников</div></div>
-      </div></div>`;
-    }
-
-    sources.sort((a,b) => a[1]-b[1]);
+    const sources = Object.entries(all).sort((a,b) => a[1]-b[1]);
+    if (sources.length < 2) return { symbol: token.symbol, sources, insufficient: true, dexAddress: token.dex };
     const [minSrc, minPrice] = sources[0];
     const [maxSrc, maxPrice] = sources[sources.length-1];
     const spread = ((maxPrice - minPrice) / minPrice) * 100;
-    const isHot = spread >= 1.0;
-    const isOpen = openCards.has(token.symbol);
+    return { symbol: token.symbol, sources, minSrc, minPrice, maxSrc, maxPrice, spread, dexAddress: token.dex };
+  }));
+  return results;
+}
 
-    const detailRows = sources.map(([src, price]) => {
+function render() {
+  const main = document.getElementById("main");
+  let list = latestData.filter(t => !t.insufficient);
+  const insufficientList = latestData.filter(t => t.insufficient);
+
+  if (searchQuery) {
+    list = list.filter(t => t.symbol.toLowerCase().includes(searchQuery.toLowerCase()));
+  }
+  if (showOnlyHot) {
+    list = list.filter(t => t.spread >= threshold);
+  }
+  if (sortMode === "spread") list.sort((a,b) => b.spread - a.spread);
+  else list.sort((a,b) => a.symbol.localeCompare(b.symbol));
+
+  // top spread banner
+  const top = [...latestData].filter(t=>!t.insufficient).sort((a,b)=>b.spread-a.spread)[0];
+  const topEl = document.getElementById("topSpread");
+  if (top) {
+    topEl.style.display = "flex";
+    topEl.innerHTML = `🔥 Максимальный спред сейчас: <b>${top.symbol} ${top.spread.toFixed(2)}%</b>`;
+  }
+
+  if (list.length === 0) {
+    main.innerHTML = `<div class="empty">Ничего не найдено${showOnlyHot ? " выше порога " + threshold + "%" : ""}</div>`;
+    return;
+  }
+
+  main.innerHTML = list.map(t => {
+    const isHot = t.spread >= threshold;
+    const isOpen = openCards.has(t.symbol);
+    const detailRows = t.sources.map(([src, price]) => {
       const [kind, name] = src.split(":");
       return `<div class="detailRow"><span><span class="tag">${kind}</span>${name}</span><span>$${fmtPrice(price)}</span></div>`;
     }).join("");
 
     return `
-    <div class="card">
-      <div class="cardHead" onclick="toggleCard('${token.symbol}')" style="cursor:pointer">
+    <div class="card ${isHot?'hot':''}">
+      <div class="cardHead" onclick="toggleCard('${t.symbol}')">
         <div>
-          <div class="tokenName">${token.symbol}</div>
-          <div class="tokenSources">${sources.length} источников · мин ${minSrc.split(':')[1]} → макс ${maxSrc.split(':')[1]}</div>
+          <div class="tokenName">${isHot?'🔥 ':''}${t.symbol}</div>
+          <div class="tokenSources">${t.sources.length} источников · ${t.minSrc.split(':')[1]} → ${t.maxSrc.split(':')[1]}</div>
         </div>
-        <div class="spreadBadge ${isHot ? 'hot':''}">${spread.toFixed(2)}%</div>
+        <div class="spreadBadge ${isHot?'hot':''}">${t.spread.toFixed(2)}%</div>
       </div>
       <div class="priceLine">
-        <span>min: <b>$${fmtPrice(minPrice)}</b></span>
-        <span>max: <b>$${fmtPrice(maxPrice)}</b></span>
+        <span>min: <b>$${fmtPrice(t.minPrice)}</b></span>
+        <span>max: <b>$${fmtPrice(t.maxPrice)}</b></span>
       </div>
-      <div class="detail ${isOpen ? 'open':''}" id="detail-${token.symbol}">
+      <div class="detail ${isOpen?'open':''}" id="detail-${t.symbol}">
         ${detailRows}
+        <button class="copyBtn" onclick="copyAddr('${t.dexAddress}', event)">📋 Скопировать адрес контракта</button>
       </div>
     </div>`;
-  }));
-
-  main.innerHTML = cardsHtml.join("");
-  document.getElementById("dot").classList.add("live");
-  document.getElementById("status").textContent = "обновлено " + new Date().toLocaleTimeString('ru-RU');
+  }).join("") + insufficientList.map(t => `
+    <div class="card" style="opacity:0.5">
+      <div class="cardHead"><div class="tokenName">${t.symbol}</div>
+      <div class="spreadBadge">н/д</div></div>
+    </div>`).join("");
 }
 
 function toggleCard(symbol) {
   if (openCards.has(symbol)) openCards.delete(symbol);
   else openCards.add(symbol);
-  const el = document.getElementById("detail-" + symbol);
-  if (el) el.classList.toggle("open");
+  render();
 }
 
+function copyAddr(addr, event) {
+  event.stopPropagation();
+  navigator.clipboard?.writeText(addr);
+  if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+}
+
+async function loadAll() {
+  document.getElementById("dot").classList.remove("live");
+  document.getElementById("status").textContent = "обновление…";
+
+  latestData = await fetchAllData();
+  lastLoadTime = Date.now();
+  render();
+
+  // вибро-уведомление, если появился новый "горячий" спред
+  const nowHot = new Set(latestData.filter(t => !t.insufficient && t.spread >= threshold).map(t => t.symbol));
+  let newHot = false;
+  nowHot.forEach(s => { if (!previouslyHot.has(s)) newHot = true; });
+  if (newHot && window.Telegram?.WebApp?.HapticFeedback) {
+    window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+  }
+  previouslyHot = nowHot;
+
+  document.getElementById("dot").classList.add("live");
+  updateStatusTime();
+}
+
+function updateStatusTime() {
+  if (!lastLoadTime) return;
+  const sec = Math.floor((Date.now() - lastLoadTime) / 1000);
+  document.getElementById("status").textContent = sec < 5 ? "обновлено только что" : `обновлено ${sec} сек назад`;
+}
+
+// --- controls ---
 document.getElementById("refreshBtn").addEventListener("click", loadAll);
+document.getElementById("searchInput").addEventListener("input", (e) => { searchQuery = e.target.value; render(); });
+document.getElementById("sortSelect").addEventListener("change", (e) => { sortMode = e.target.value; render(); });
+document.getElementById("thresholdSlider").addEventListener("input", (e) => {
+  threshold = parseInt(e.target.value);
+  document.getElementById("thresholdVal").textContent = threshold + "%";
+  render();
+});
+document.getElementById("showAllBtn").addEventListener("click", () => {
+  showOnlyHot = false;
+  document.getElementById("showAllBtn").classList.add("active");
+  document.getElementById("showHotBtn").classList.remove("active");
+  render();
+});
+document.getElementById("showHotBtn").addEventListener("click", () => {
+  showOnlyHot = true;
+  document.getElementById("showHotBtn").classList.add("active");
+  document.getElementById("showAllBtn").classList.remove("active");
+  render();
+});
+
 loadAll();
 setInterval(loadAll, 60000);
+setInterval(updateStatusTime, 1000);
 
-// --- Telegram Mini App: разворачиваем на весь экран, если открыто внутри Telegram ---
 if (window.Telegram && window.Telegram.WebApp) {
   const tg = window.Telegram.WebApp;
   tg.ready();
   tg.expand();
-  // не даём случайно смахнуть приложение вниз
-  if (tg.isVersionAtLeast && tg.isVersionAtLeast('7.7')) {
-    tg.disableVerticalSwipes();
-  }
+  if (tg.isVersionAtLeast && tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes();
 }
 </script>
 </body>

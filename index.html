@@ -192,24 +192,52 @@ function pairsFor(base) {
 }
 
 const RAW_TOKENS = [
+  // топ по капитализации, с DEX-парой
   { symbol:"BTC",  dex:"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599" },
   { symbol:"ETH",  dex:"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" },
   { symbol:"SOL",  dex:"So11111111111111111111111111111111111111112" },
   { symbol:"BNB",  dex:"0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c" },
   { symbol:"LINK", dex:"0x514910771af9ca656af840dff83e8264ecf986ca" },
   { symbol:"AVAX", dex:"0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7" },
+  { symbol:"MATIC",dex:"0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0" },
+  // DeFi / DEX-токены
   { symbol:"UNI",  dex:"0x1f9840a85d5af5bf1d1762f925bdaddc4201f984" },
   { symbol:"AAVE", dex:"0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9" },
   { symbol:"MKR",  dex:"0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2" },
   { symbol:"LDO",  dex:"0x5a98fcbea516cf06857215779fd812ca3bef1b32" },
   { symbol:"CRV",  dex:"0xd533a949740bb3306d119cc777fa900ba034cd52" },
+  { symbol:"COMP", dex:"0xc00e94cb662c3520282e6f5717214004a7f26888" },
+  { symbol:"SNX",  dex:"0xc011a73ee8576fb46f5e1c5751ca3b9fe0af2a6f" },
+  { symbol:"YFI",  dex:"0x0bc529c00c6401aef6d220be8c6ea1667f6ad93e" },
+  { symbol:"1INCH",dex:"0x111111111117dc0aa78b770fa6a738034120c302" },
+  // мемкоины
   { symbol:"SHIB", dex:"0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce" },
   { symbol:"PEPE", dex:"0x6982508145454ce325ddbe47a25d4ec3d2311933" },
+  // gaming / NFT / метавселенная
   { symbol:"SAND", dex:"0x3845badade8e6dff049820680d1f14bd3903a5d" },
   { symbol:"MANA", dex:"0x0f5d2fb29fb7d3cfee444a200298f468908cc942" },
+  { symbol:"APE",  dex:"0x4d224452801aced8b2f0aebe155379bb5d594381" },
+  { symbol:"GALA", dex:"0x15d4c048f83bd7e37d49ea4c83a07267ec4203da" },
+  { symbol:"ENJ",  dex:"0xf629cbd94d3791c9250152bd8dfbdf380e2a3b9c" },
+  { symbol:"IMX",  dex:"0xf57e7e7c23978c3caec3c3548e3d615c346e79ff" },
+  // инфраструктура / L2 / AI
   { symbol:"GRT",  dex:"0xc944e90c64b2c07662a292be6244bdf05cda44a7" },
   { symbol:"ARB",  dex:"0x912ce59144191c1204e64559fe8253a0e49e6548" },
   { symbol:"OP",   dex:"0x4200000000000000000000000000000000000042" },
+  { symbol:"ENS",  dex:"0xc18360217d8f7ab5e7c516566761ea12ce7f9d72" },
+  { symbol:"FET",  dex:"0xaea46a60368a7bd060eec7df8cba43b7ef41ad85" },
+  { symbol:"BLUR", dex:"0x5283d291dbcf85356a21ba090e6db59121208b44" },
+  // топ по CEX-объёму, без активной ликвидности на ETH DEX — сравниваем только между биржами
+  { symbol:"DOGE", dex:null },
+  { symbol:"XRP",  dex:null },
+  { symbol:"ADA",  dex:null },
+  { symbol:"DOT",  dex:null },
+  { symbol:"LTC",  dex:null },
+  { symbol:"TRX",  dex:null },
+  { symbol:"ATOM", dex:null },
+  { symbol:"ALGO", dex:null },
+  { symbol:"XLM",  dex:null },
+  { symbol:"ICP",  dex:null },
 ];
 const TOKENS = RAW_TOKENS.map(t => ({ ...t, cexPairs: pairsFor(t.symbol) }));
 
@@ -274,7 +302,10 @@ let previouslyHot = new Set();
 
 async function fetchAllData() {
   const results = await Promise.all(TOKENS.map(async (token) => {
-    const [cex, dex] = await Promise.all([getCexPrices(token), getDexPrices(token.dex)]);
+    const [cex, dex] = await Promise.all([
+      getCexPrices(token),
+      token.dex ? getDexPrices(token.dex) : Promise.resolve({}),
+    ]);
     const all = { ...cex, ...dex };
     const sources = Object.entries(all).sort((a,b) => a[1]-b[1]);
     if (sources.length < 2) return { symbol: token.symbol, sources, insufficient: true, dexAddress: token.dex };
@@ -336,7 +367,7 @@ function render() {
       </div>
       <div class="detail ${isOpen?'open':''}" id="detail-${t.symbol}">
         ${detailRows}
-        <button class="copyBtn" onclick="copyAddr('${t.dexAddress}', event)">📋 Скопировать адрес контракта</button>
+        ${t.dexAddress ? `<button class="copyBtn" onclick="copyAddr('${t.dexAddress}', event)">📋 Скопировать адрес контракта</button>` : ''}
       </div>
     </div>`;
   }).join("") + insufficientList.map(t => `

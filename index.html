@@ -132,6 +132,7 @@
     <button class="refreshBtn" id="refreshBtn">Обновить</button>
   </div>
   <div class="topSpread" id="topSpread" style="display:none"></div>
+  <div class="countBadge" id="exchangeStatus"></div>
 </header>
 
 <div class="controls">
@@ -203,8 +204,9 @@
 </main>
 
 <footer>
-  CEX (10 бирж с низкими комиссиями): Binance, OKX, Bybit, KuCoin, Gate.io, MEXC, Bitget,
-  Poloniex, CoinEx, LBank.
+  CEX (6 бирж с низкими комиссиями): Binance, OKX, Bybit, Gate.io, MEXC, CoinEx.
+  Список токенов (до 500) строится динамически — берутся живые топ-500 пар по 24-часовому
+  объёму на Binance (без стейблкоинов и плечевых токенов), а не набиты руками.
   DEX (топ-10 реальных AMM): Uniswap, PancakeSwap, SushiSwap, Curve, Balancer, KyberSwap,
   QuickSwap, Trader Joe, Raydium, Orca — через публичный API DexScreener. Пулы с ликвидностью
   ниже $20 000 и цены, аномально отклоняющиеся от медианы CEX, отбрасываются автоматически.
@@ -219,48 +221,105 @@
 // ---------------------------------------------------------------------------
 // БИРЖИ (CEX)
 // ---------------------------------------------------------------------------
-const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", kucoin:"KuCoin", gateio:"Gate.io", mexc:"MEXC", bitget:"Bitget", poloniex:"Poloniex", coinex:"CoinEx", lbank:"LBank" };
+const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", gateio:"Gate.io", mexc:"MEXC", coinex:"CoinEx" };
 const EXCHANGE_TRADE_URL = {
   binance: (b) => `https://www.binance.com/en/trade/${b}_USDT`,
   okx: (b) => `https://www.okx.com/trade-spot/${b.toLowerCase()}-usdt`,
   bybit: (b) => `https://www.bybit.com/en/trade/spot/${b}/USDT`,
-  kucoin: (b) => `https://www.kucoin.com/trade/${b}-USDT`,
   gateio: (b) => `https://www.gate.io/trade/${b}_USDT`,
   mexc: (b) => `https://www.mexc.com/exchange/${b}_USDT`,
-  bitget: (b) => `https://www.bitget.com/spot/${b}USDT`,
-  poloniex: (b) => `https://poloniex.com/trade/${b}_USDT`,
   coinex: (b) => `https://www.coinex.com/exchange/${b.toLowerCase()}-usdt`,
-  lbank: (b) => `https://www.lbank.com/trade/${b.toLowerCase()}_usdt`,
 };
+const exchangeHealth = {}; // binance:true/false и т.д. — для индикатора статуса
 
-function pairsFor(base) {
-  const b = base;
-  return {
-    binance:b+"USDT", okx:b+"-USDT", bybit:b+"USDT", kucoin:b+"-USDT", gateio:b+"_USDT",
-    mexc:b+"USDT", bitget:b+"USDT", poloniex:b+"_USDT", coinex:b+"USDT", lbank:b.toLowerCase()+"_usdt",
-  };
+// ---------------------------------------------------------------------------
+// МАССОВАЯ ЗАГРУЗКА ЦЕН — по одному запросу "все тикеры" на биржу вместо
+// запроса на каждую монету по отдельности (иначе 500 токенов × 6 бирж = 3000
+// запросов за цикл, что убьёт и лимиты API, и телефон).
+// ---------------------------------------------------------------------------
+async function fetchBinanceBulk() {
+  const r = await fetch("https://api.binance.com/api/v3/ticker/24hr");
+  const d = await r.json();
+  const prices = new Map(), volumes = new Map();
+  d.forEach(t => {
+    if (!t.symbol.endsWith("USDT")) return;
+    const base = t.symbol.slice(0, -4);
+    prices.set(base, parseFloat(t.lastPrice));
+    volumes.set(base, parseFloat(t.quoteVolume) || 0);
+  });
+  return { prices, volumes };
+}
+async function fetchOkxBulk() {
+  const r = await fetch("https://www.okx.com/api/v5/market/tickers?instType=SPOT");
+  const d = await r.json();
+  const prices = new Map();
+  (d.data || []).forEach(t => {
+    if (!t.instId.endsWith("-USDT")) return;
+    prices.set(t.instId.replace("-USDT",""), parseFloat(t.last));
+  });
+  return prices;
+}
+async function fetchBybitBulk() {
+  const r = await fetch("https://api.bybit.com/v5/market/tickers?category=spot");
+  const d = await r.json();
+  const prices = new Map();
+  (d.result?.list || []).forEach(t => {
+    if (!t.symbol.endsWith("USDT")) return;
+    prices.set(t.symbol.slice(0,-4), parseFloat(t.lastPrice));
+  });
+  return prices;
+}
+async function fetchGateioBulk() {
+  const r = await fetch("https://api.gateio.ws/api/v4/spot/tickers");
+  const d = await r.json();
+  const prices = new Map();
+  (d || []).forEach(t => {
+    if (!t.currency_pair.endsWith("_USDT")) return;
+    prices.set(t.currency_pair.replace("_USDT",""), parseFloat(t.last));
+  });
+  return prices;
+}
+async function fetchMexcBulk() {
+  const r = await fetch("https://api.mexc.com/api/v3/ticker/price");
+  const d = await r.json();
+  const prices = new Map();
+  (d || []).forEach(t => {
+    if (!t.symbol.endsWith("USDT")) return;
+    prices.set(t.symbol.slice(0,-4), parseFloat(t.price));
+  });
+  return prices;
+}
+async function fetchCoinexBulk() {
+  const r = await fetch("https://api.coinex.com/v1/market/ticker/all");
+  const d = await r.json();
+  const prices = new Map();
+  Object.entries(d.data?.ticker || {}).forEach(([sym, t]) => {
+    if (!sym.endsWith("USDT")) return;
+    prices.set(sym.slice(0,-4), parseFloat(t.last));
+  });
+  return prices;
 }
 
-const cexFetchers = {
-  binance: async (p) => parseFloat((await (await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${p}`)).json()).price),
-  okx: async (p) => parseFloat((await (await fetch(`https://www.okx.com/api/v5/market/ticker?instId=${p}`)).json()).data[0].last),
-  bybit: async (p) => parseFloat((await (await fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${p}`)).json()).result.list[0].lastPrice),
-  kucoin: async (p) => parseFloat((await (await fetch(`https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=${p}`)).json()).data.price),
-  gateio: async (p) => parseFloat((await (await fetch(`https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${p}`)).json())[0].last),
-  mexc: async (p) => parseFloat((await (await fetch(`https://api.mexc.com/api/v3/ticker/price?symbol=${p}`)).json()).price),
-  bitget: async (p) => parseFloat((await (await fetch(`https://api.bitget.com/api/v2/spot/market/tickers?symbol=${p}`)).json()).data[0].lastPr),
-  poloniex: async (p) => parseFloat((await (await fetch(`https://api.poloniex.com/markets/${p}/price`)).json()).price),
-  coinex: async (p) => parseFloat((await (await fetch(`https://api.coinex.com/v1/market/ticker?market=${p}`)).json()).data.ticker.last),
-  lbank: async (p) => parseFloat((await (await fetch(`https://api.lbkex.com/v2/ticker/24hr.do?symbol=${p}`)).json()).data[0].ticker.latest),
-};
+let bulkPrices = { binance:new Map(), okx:new Map(), bybit:new Map(), gateio:new Map(), mexc:new Map(), coinex:new Map() };
+let binanceVolumes = new Map();
 
-async function getCexPrices(token) {
-  const entries = Object.entries(token.cexPairs);
-  const results = await Promise.allSettled(entries.map(([ex, pair]) => cexFetchers[ex](pair)));
+async function refreshBulkPrices() {
+  const [bin, okx, bybit, gate, mexc, coinex] = await Promise.allSettled([
+    fetchBinanceBulk(), fetchOkxBulk(), fetchBybitBulk(), fetchGateioBulk(), fetchMexcBulk(), fetchCoinexBulk(),
+  ]);
+  if (bin.status === "fulfilled") { bulkPrices.binance = bin.value.prices; binanceVolumes = bin.value.volumes; exchangeHealth.binance = true; } else exchangeHealth.binance = false;
+  if (okx.status === "fulfilled") { bulkPrices.okx = okx.value; exchangeHealth.okx = true; } else exchangeHealth.okx = false;
+  if (bybit.status === "fulfilled") { bulkPrices.bybit = bybit.value; exchangeHealth.bybit = true; } else exchangeHealth.bybit = false;
+  if (gate.status === "fulfilled") { bulkPrices.gateio = gate.value; exchangeHealth.gateio = true; } else exchangeHealth.gateio = false;
+  if (mexc.status === "fulfilled") { bulkPrices.mexc = mexc.value; exchangeHealth.mexc = true; } else exchangeHealth.mexc = false;
+  if (coinex.status === "fulfilled") { bulkPrices.coinex = coinex.value; exchangeHealth.coinex = true; } else exchangeHealth.coinex = false;
+}
+
+function getCexPrices(token) {
   const prices = {};
-  results.forEach((res, i) => {
-    const [ex] = entries[i];
-    if (res.status === "fulfilled" && res.value > 0) prices["CEX:" + ex] = res.value;
+  Object.keys(EXCHANGE_NAMES).forEach(ex => {
+    const p = bulkPrices[ex]?.get(token.symbol);
+    if (p > 0) prices["CEX:" + ex] = p;
   });
   return prices;
 }
@@ -434,17 +493,26 @@ function sparkline(symbol) {
 // ---------------------------------------------------------------------------
 // ССЫЛКИ "ОТКРЫТЬ"
 // ---------------------------------------------------------------------------
+const UNISWAP_CHAIN_SLUG = { Ethereum:"ethereum", Arbitrum:"arbitrum", Optimism:"optimism", Polygon:"polygon", BSC:"bnb", Avalanche:"avalanche" };
+
 function openLinkFor(key, symbol, dexAddress) {
   const [kind, name] = key.split(":");
   if (kind === "CEX" && EXCHANGE_TRADE_URL[name]) return EXCHANGE_TRADE_URL[name](symbol);
   if (kind === "DEX" && dexAddress) return `https://dexscreener.com/search?q=${dexAddress}`;
   return null;
 }
+// прямая ссылка на своп в Uniswap с уже подставленным токеном — открывается
+// в браузере кошелька (MetaMask/Trust Wallet) и сразу подключает его
+function swapLinkFor(chain, dexAddress) {
+  const slug = UNISWAP_CHAIN_SLUG[chain];
+  if (!slug || !dexAddress) return null;
+  return `https://app.uniswap.org/swap?outputCurrency=${dexAddress}&chain=${slug}`;
+}
 
 // ---------------------------------------------------------------------------
 // ТОКЕНЫ (~100)
 // ---------------------------------------------------------------------------
-const RAW_TOKENS = [
+const CURATED_TOKENS = [
   { symbol:"BTC",  dex:"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599" },
   { symbol:"ETH",  dex:"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" },
   { symbol:"SOL",  dex:"So11111111111111111111111111111111111111112" },
@@ -565,7 +633,35 @@ const RAW_TOKENS = [
   { symbol:"KAVA", dex:null }, { symbol:"ROSE",dex:null }, { symbol:"IOTA",dex:null },
   { symbol:"QTUM", dex:null }, { symbol:"WAVES",dex:null }, { symbol:"KAS",dex:null },
 ];
-const TOKENS = RAW_TOKENS.map(t => ({ ...t, cexPairs: pairsFor(t.symbol) }));
+const TOKENS_TARGET_COUNT = 500;
+const STABLE_EXCLUDE = new Set(["USDC","FDUSD","TUSD","DAI","USDP","PYUSD","BUSD","USDD","GUSD","USTC","EUR","EURI","FRAX","USDE","USD1"]);
+
+function isLeveragedOrWeird(base) {
+  if (/^\d/.test(base)) return true;                 // токены вида 1000SHIB
+  if (/(UP|DOWN|BULL|BEAR)$/.test(base) && base.length <= 8) return true; // плечевые токены Binance
+  return false;
+}
+
+// Собираем полный список: топ-500 по объёму с Binance (реальные, живые данные,
+// а не набитый руками список) + объединяем с проверенными токенами, у которых
+// есть известный DEX-адрес — так DEX-сравнение сохраняется там, где оно возможно.
+let TOKENS = [];
+async function buildTokenUniverse() {
+  await refreshBulkPrices();
+  const ranked = [...binanceVolumes.entries()]
+    .filter(([base]) => !STABLE_EXCLUDE.has(base) && !isLeveragedOrWeird(base))
+    .sort((a,b) => b[1]-a[1])
+    .slice(0, TOKENS_TARGET_COUNT)
+    .map(([base]) => base);
+
+  const curatedMap = new Map(CURATED_TOKENS.map(t => [t.symbol, t]));
+  const universe = ranked.map(sym => curatedMap.get(sym) || { symbol: sym, dex: null });
+  // добавляем проверенные DEX-токены, которые не попали в топ-500 по объёму на Binance,
+  // но у нас для них уже есть надёжный контракт
+  CURATED_TOKENS.forEach(t => { if (!universe.find(u => u.symbol === t.symbol)) universe.push(t); });
+  TOKENS = universe;
+}
+
 
 // ---------------------------------------------------------------------------
 // СОСТОЯНИЕ
@@ -585,11 +681,10 @@ let notifyEnabled = false;
 let chainListPopulated = false;
 
 async function fetchAllData() {
+  await refreshBulkPrices();
   const results = await Promise.all(TOKENS.map(async (token) => {
-    const [cex, dex] = await Promise.all([
-      getCexPrices(token),
-      token.dex ? getDexPrices(token.dex) : Promise.resolve({}),
-    ]);
+    const cex = getCexPrices(token);
+    const dex = token.dex ? await getDexPrices(token.dex) : {};
 
     const cexVals = Object.values(cex);
     if (cexVals.length) {
@@ -649,7 +744,11 @@ function render() {
     return;
   }
 
-  main.innerHTML = list.map(t => {
+  const MAX_RENDER = 150; // защита от подвисания на телефоне при показе всех 500 токенов разом
+  const truncated = list.length > MAX_RENDER;
+  if (truncated) list = list.slice(0, MAX_RENDER);
+
+  main.innerHTML = (truncated ? `<div class="sectionLabel">Показаны первые ${MAX_RENDER} из ${totalValid} — сузьте поиском или порогом</div>` : "") + list.map(t => {
     const isHot = t.spread >= threshold;
     const isOpen = openCards.has(t.symbol);
     const isFav = favorites.has(t.symbol);
@@ -670,6 +769,7 @@ function render() {
     }).join("");
 
     const canCheckHp = t.dexAddress && GOPLUS_CHAIN_IDS[t.chain];
+    const swapLink = swapLinkFor(t.chain, t.dexAddress);
 
     return `
     <div class="card ${isHot?'hot':''}">
@@ -696,6 +796,7 @@ function render() {
         <div class="actionsRow">
           ${t.dexAddress ? `<button class="miniBtn" onclick="event.stopPropagation(); navigator.clipboard?.writeText('${t.dexAddress}')">📋 Адрес контракта</button>` : ''}
           ${canCheckHp ? `<button class="miniBtn" onclick="event.stopPropagation(); checkHoneypot('${t.symbol}','${t.dexAddress}','${t.chain}')">🛡️ Проверить на honeypot</button>` : ''}
+          ${swapLink ? `<a class="miniBtn" style="text-decoration:none; display:inline-block" href="${swapLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🦊 Открыть своп (MetaMask/Trust)</a>` : ''}
         </div>
         <div id="hp-${t.symbol}"></div>
         <div class="sparkWrap">${sparkline(t.symbol)}</div>
@@ -735,6 +836,17 @@ async function loadAll() {
 
   document.getElementById("dot").classList.add("live");
   updateStatusTime();
+  updateExchangeStatus();
+}
+
+function updateExchangeStatus() {
+  const el = document.getElementById("exchangeStatus");
+  const parts = Object.keys(EXCHANGE_NAMES).map(ex => {
+    const ok = exchangeHealth[ex];
+    const dot = ok === false ? "🔴" : ok === true ? "🟢" : "⚪";
+    return `${dot} ${EXCHANGE_NAMES[ex]}`;
+  });
+  el.textContent = parts.join("  ·  ");
 }
 
 function updateStatusTime() {
@@ -790,8 +902,11 @@ document.getElementById("exportBtn").addEventListener("click", () => {
 });
 
 applyTelegramTheme();
-loadAll();
-scheduleRefresh(60000);
+(async () => {
+  await buildTokenUniverse();   // строим топ-500 по объёму + проверенные DEX-токены
+  loadAll();
+  scheduleRefresh(60000);
+})();
 setInterval(updateStatusTime, 1000);
 
 if (window.Telegram && window.Telegram.WebApp) {

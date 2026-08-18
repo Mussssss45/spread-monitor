@@ -759,24 +759,6 @@ let lastFetchFailed = false;
 // ---------------------------------------------------------------------------
 // СОХРАНЕНИЕ НАСТРОЕК МЕЖДУ СЕССИЯМИ
 // ---------------------------------------------------------------------------
-function saveSettings() {
-  try {
-    localStorage.setItem('spreadMonitorSettings', JSON.stringify({
-      threshold, showOnlyHot, sortMode, tradeSize, chainFilterValue, refreshIntervalMs,
-    }));
-  } catch(e) {}
-}
-function loadSettings() {
-  try {
-    const s = JSON.parse(localStorage.getItem('spreadMonitorSettings') || '{}');
-    if (typeof s.threshold === "number") threshold = s.threshold;
-    if (typeof s.showOnlyHot === "boolean") showOnlyHot = s.showOnlyHot;
-    if (typeof s.sortMode === "string") sortMode = s.sortMode;
-    if (typeof s.tradeSize === "number") tradeSize = s.tradeSize;
-    if (typeof s.chainFilterValue === "string") chainFilterValue = s.chainFilterValue;
-    if (typeof s.refreshIntervalMs === "number") refreshIntervalMs = s.refreshIntervalMs;
-  } catch(e) {}
-}
 function applySettingsToUI() {
   document.getElementById("thresholdSlider").value = threshold;
   document.getElementById("thresholdVal").textContent = threshold + "%";
@@ -1036,7 +1018,6 @@ document.getElementById("shareBtn").addEventListener("click", () => {
 // повтор при полном сбое сети
 document.getElementById("retryBtn").addEventListener("click", loadAll);
 
-loadSettings();
 applySettingsToUI();
 applyTelegramTheme();
 document.getElementById("status").textContent = "загружаю список монет…";

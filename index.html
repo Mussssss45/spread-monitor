@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Spread Monitor</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -112,6 +113,27 @@
   .switch .knob{ width:18px; height:18px; background:#fff; border-radius:50%; position:absolute; top:2px; left:2px;
     transition:left 0.15s; }
   .switch.on .knob{left:21px;}
+
+  .errorBanner{
+    margin:0 14px 12px; background:rgba(255,92,92,0.12); border:1px solid rgba(255,92,92,0.35);
+    color:var(--down); border-radius:12px; padding:12px 14px; font-size:12.5px; display:flex;
+    align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  .errorBanner button{
+    background:var(--down); color:#fff; border:none; padding:6px 12px; border-radius:8px;
+    font-size:12px; font-weight:700;
+  }
+  .modalOverlay{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50; display:flex;
+    align-items:flex-end; justify-content:center;
+  }
+  .modalCard{
+    background:var(--panel); border:1px solid var(--line); border-radius:20px 20px 0 0;
+    padding:22px 20px 26px; max-width:480px; width:100%; max-height:80vh; overflow-y:auto;
+  }
+  .modalCard h2{margin:0 0 14px; font-size:18px;}
+  .helpList{ margin:0; padding-left:18px; font-size:13px; line-height:1.9; color:var(--dim); }
+  .helpList b{color:var(--text);}
   .sparkWrap{margin-top:10px;}
   .sparkLabel{font-size:11px; color:var(--dim); margin-bottom:4px;}
   .empty{color:var(--dim); font-size:13px; padding:30px 15px; text-align:center; line-height:1.6;}
@@ -124,7 +146,13 @@
 <body>
 
 <header>
-  <h1>Spread Monitor</h1>
+  <div style="display:flex; align-items:center; justify-content:space-between;">
+    <h1>Spread Monitor</h1>
+    <div style="display:flex; gap:6px;">
+      <button class="refreshBtn" id="helpBtn" style="margin-left:0;">?</button>
+      <button class="refreshBtn" id="shareBtn" style="margin-left:0;">📤</button>
+    </div>
+  </div>
   <div class="sub">CEX vs DEX · только проверенные источники</div>
   <div class="statusRow">
     <div class="dot" id="dot"></div>
@@ -134,6 +162,27 @@
   <div class="topSpread" id="topSpread" style="display:none"></div>
   <div class="countBadge" id="exchangeStatus"></div>
 </header>
+
+<div class="errorBanner" id="errorBanner" style="display:none">
+  ⚠️ Не удалось получить данные ни с одной биржи. Проверьте интернет-соединение.
+  <button id="retryBtn">Повторить</button>
+</div>
+
+<div class="modalOverlay" id="onboardOverlay" style="display:none">
+  <div class="modalCard">
+    <h2>Как пользоваться</h2>
+    <ul class="helpList">
+      <li><b>Спред</b> — разница между самой низкой и самой высокой ценой токена среди всех бирж и DEX прямо сейчас.</li>
+      <li><b>min / max</b> — сама низкая и самая высокая цена и где именно.</li>
+      <li><b>Чистыми на $X</b> — оценка прибыли после комиссий, проскальзывания и газа. Это оценка, не гарантия.</li>
+      <li><b>★</b> — закрепить токен наверху списка.</li>
+      <li><b>🛡️ Проверить на honeypot</b> — узнать, не окажется ли токен ловушкой, из которой нельзя продать.</li>
+      <li><b>🦊 Открыть своп</b> — открывает Uniswap с этим токеном, подключается через MetaMask/Trust Wallet.</li>
+      <li><b>Ползунок порога</b> — показывает только токены со спредом от заданного значения.</li>
+    </ul>
+    <button class="miniBtn" id="closeOnboard" style="width:100%; margin-top:14px;">Понятно, начать</button>
+  </div>
+</div>
 
 <div class="controls">
   <div class="box">
@@ -664,21 +713,64 @@ async function buildTokenUniverse() {
 
 
 // ---------------------------------------------------------------------------
-// СОСТОЯНИЕ
+// СОСТОЯНИЕ (с сохранением настроек между визитами)
 // ---------------------------------------------------------------------------
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem('spreadMonitorSettings') || '{}'); } catch(e) { return {}; }
+}
+function saveSettings() {
+  try {
+    localStorage.setItem('spreadMonitorSettings', JSON.stringify({
+      threshold, showOnlyHot, sortMode, tradeSize, chainFilterValue, refreshIntervalMs,
+    }));
+  } catch(e) {}
+}
+const saved = loadSettings();
+
 let openCards = new Set();
 let latestData = [];
-let threshold = 5;
-let showOnlyHot = true;
-let sortMode = "spread";
+let threshold = saved.threshold ?? 5;
+let showOnlyHot = saved.showOnlyHot ?? true;
+let sortMode = saved.sortMode ?? "spread";
 let searchQuery = "";
-let tradeSize = 500;
+let tradeSize = saved.tradeSize ?? 500;
 let lastLoadTime = null;
 let previouslyHot = new Set();
 let refreshTimer = null;
-let chainFilterValue = "";
+let chainFilterValue = saved.chainFilterValue ?? "";
 let notifyEnabled = false;
 let chainListPopulated = false;
+let refreshIntervalMs = saved.refreshIntervalMs ?? 60000;
+let lastFetchFailed = false;
+
+// ---------------------------------------------------------------------------
+// СОХРАНЕНИЕ НАСТРОЕК МЕЖДУ СЕССИЯМИ
+// ---------------------------------------------------------------------------
+function saveSettings() {
+  try {
+    localStorage.setItem('spreadMonitorSettings', JSON.stringify({
+      threshold, showOnlyHot, sortMode, tradeSize, chainFilterValue, refreshIntervalMs,
+    }));
+  } catch(e) {}
+}
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('spreadMonitorSettings') || '{}');
+    if (typeof s.threshold === "number") threshold = s.threshold;
+    if (typeof s.showOnlyHot === "boolean") showOnlyHot = s.showOnlyHot;
+    if (typeof s.sortMode === "string") sortMode = s.sortMode;
+    if (typeof s.tradeSize === "number") tradeSize = s.tradeSize;
+    if (typeof s.chainFilterValue === "string") chainFilterValue = s.chainFilterValue;
+    if (typeof s.refreshIntervalMs === "number") refreshIntervalMs = s.refreshIntervalMs;
+  } catch(e) {}
+}
+function applySettingsToUI() {
+  document.getElementById("thresholdSlider").value = threshold;
+  document.getElementById("thresholdVal").textContent = threshold + "%";
+  document.getElementById("sortSelect").value = sortMode;
+  document.getElementById("tradeSizeInput").value = tradeSize;
+  document.getElementById("intervalSelect").value = String(refreshIntervalMs);
+}
 
 async function fetchAllData() {
   await refreshBulkPrices();
@@ -837,6 +929,9 @@ async function loadAll() {
   document.getElementById("dot").classList.add("live");
   updateStatusTime();
   updateExchangeStatus();
+
+  const anyHealthy = Object.values(exchangeHealth).some(v => v === true);
+  document.getElementById("errorBanner").style.display = anyHealthy ? "none" : "flex";
 }
 
 function updateExchangeStatus() {
@@ -862,21 +957,25 @@ function scheduleRefresh(intervalMs) {
 
 document.getElementById("refreshBtn").addEventListener("click", loadAll);
 document.getElementById("searchInput").addEventListener("input", (e) => { searchQuery = e.target.value; render(); });
-document.getElementById("sortSelect").addEventListener("change", (e) => { sortMode = e.target.value; render(); });
+document.getElementById("sortSelect").addEventListener("change", (e) => { sortMode = e.target.value; saveSettings(); render(); });
 document.getElementById("thresholdSlider").addEventListener("input", (e) => {
   threshold = parseInt(e.target.value);
   document.getElementById("thresholdVal").textContent = threshold + "%";
+  saveSettings();
   render();
 });
-document.getElementById("showAllBtn").addEventListener("click", () => { showOnlyHot = !showOnlyHot; render(); });
+document.getElementById("showAllBtn").addEventListener("click", () => { showOnlyHot = !showOnlyHot; saveSettings(); render(); });
 document.getElementById("tradeSizeInput").addEventListener("input", (e) => {
   tradeSize = Math.max(10, parseFloat(e.target.value) || 500);
+  saveSettings();
   render();
 });
 document.getElementById("intervalSelect").addEventListener("change", (e) => {
-  scheduleRefresh(parseInt(e.target.value));
+  refreshIntervalMs = parseInt(e.target.value);
+  scheduleRefresh(refreshIntervalMs);
+  saveSettings();
 });
-document.getElementById("chainFilter").addEventListener("change", (e) => { chainFilterValue = e.target.value; render(); });
+document.getElementById("chainFilter").addEventListener("change", (e) => { chainFilterValue = e.target.value; saveSettings(); render(); });
 document.getElementById("notifySwitch").addEventListener("click", async () => {
   if (!notifyEnabled) {
     if ("Notification" in window) {
@@ -901,13 +1000,45 @@ document.getElementById("exportBtn").addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
+// справка
+document.getElementById("helpBtn").addEventListener("click", () => { document.getElementById("onboardOverlay").style.display = "flex"; });
+document.getElementById("closeOnboard").addEventListener("click", () => {
+  document.getElementById("onboardOverlay").style.display = "none";
+  try { localStorage.setItem('spreadMonitorOnboarded', '1'); } catch(e) {}
+});
+
+// поделиться
+document.getElementById("shareBtn").addEventListener("click", () => {
+  const url = window.location.href;
+  const text = "Spread Monitor — живой мониторинг спредов CEX/DEX";
+  if (window.Telegram?.WebApp) {
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
+  } else if (navigator.share) {
+    navigator.share({ title: "Spread Monitor", text, url }).catch(() => {});
+  } else {
+    navigator.clipboard?.writeText(url);
+  }
+});
+
+// повтор при полном сбое сети
+document.getElementById("retryBtn").addEventListener("click", loadAll);
+
+loadSettings();
+applySettingsToUI();
 applyTelegramTheme();
 (async () => {
   await buildTokenUniverse();   // строим топ-500 по объёму + проверенные DEX-токены
   loadAll();
-  scheduleRefresh(60000);
+  scheduleRefresh(refreshIntervalMs);
 })();
 setInterval(updateStatusTime, 1000);
+
+try {
+  if (!localStorage.getItem('spreadMonitorOnboarded')) {
+    document.getElementById("onboardOverlay").style.display = "flex";
+  }
+} catch(e) {}
+
 
 if (window.Telegram && window.Telegram.WebApp) {
   const tg = window.Telegram.WebApp;

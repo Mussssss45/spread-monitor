@@ -8,7 +8,7 @@
 <style>
   :root{
     --bg:#0a0c0f; --panel:#13161c; --panel2:#181c23; --line:#242830;
-    --text:#eef0f3; --dim:#88909a; --up:#4fd68a;
+    --text:#eef0f3; --dim:#88909a; --up:#4fd68a; --down:#ff5c5c;
     --hot:#ff8a5c; --hot-bg:rgba(255,138,92,0.13); --accent:#5b8cff;
     --mono: 'SF Mono', 'Roboto Mono', ui-monospace, Menlo, Consolas, monospace;
   }
@@ -30,14 +30,13 @@
     background:var(--hot-bg); border:1px solid rgba(255,138,92,0.28); border-radius:11px;
     padding:10px 13px; font-size:12.5px; }
   .topSpread b{color:var(--hot); font-family:var(--mono); font-size:14px;}
-  .countBadge{ font-size:11.5px; color:var(--dim); margin-top:6px; }
 
   .controls{padding:14px 14px 0;}
-  .thresholdBox{ background:var(--panel); border:1px solid var(--line); border-radius:13px;
+  .box{ background:var(--panel); border:1px solid var(--line); border-radius:13px;
     padding:13px 15px; margin-bottom:11px; }
-  .thresholdLabel{ display:flex; justify-content:space-between; align-items:baseline; font-size:13px;
+  .boxLabel{ display:flex; justify-content:space-between; align-items:baseline; font-size:13px;
     color:var(--dim); margin-bottom:9px; font-weight:600; }
-  .thresholdLabel b{color:var(--hot); font-family:var(--mono); font-size:17px;}
+  .boxLabel b{color:var(--hot); font-family:var(--mono); font-size:17px;}
   input[type="range"]{ width:100%; accent-color:var(--hot); height:4px; display:block; margin-bottom:2px;}
   .rangeLabels{display:flex; justify-content:space-between; font-size:10px; color:var(--dim); font-family:var(--mono);}
   .filterFootnote{ display:flex; align-items:center; justify-content:space-between; margin-top:11px; }
@@ -47,8 +46,13 @@
   .controlRow{display:flex; align-items:center; gap:8px; margin-bottom:12px;}
   .searchInput{ flex:1; background:var(--panel); border:1px solid var(--line); color:var(--text);
     border-radius:11px; padding:10px 13px; font-size:14.5px; outline:none; }
-  .sortSelect{ background:var(--panel); border:1px solid var(--line); color:var(--text);
+  .sortSelect, .intervalSelect{ background:var(--panel); border:1px solid var(--line); color:var(--text);
     border-radius:11px; padding:10px 11px; font-size:13px; }
+  .tradeSizeRow{ display:flex; align-items:center; gap:10px; }
+  .tradeSizeRow input{ flex:1; background:var(--panel2); border:1px solid var(--line); color:var(--text);
+    border-radius:9px; padding:9px 11px; font-size:15px; font-family:var(--mono); outline:none; }
+  .miniNote{font-size:10.5px; color:var(--dim); margin-top:8px; line-height:1.5;}
+  .intervalRow{display:flex; align-items:center; justify-content:space-between; gap:8px;}
 
   main{padding:6px 14px 0;}
   .sectionLabel{ font-size:11.5px; color:var(--dim); font-weight:700; text-transform:uppercase;
@@ -58,23 +62,39 @@
   .card.hot{border-color:rgba(255,138,92,0.5); background:linear-gradient(180deg, rgba(255,138,92,0.05), var(--panel) 40%);}
   .cardHead{ display:flex; align-items:center; justify-content:space-between; padding:15px 16px; gap:10px; cursor:pointer; }
   .tokenName{font-weight:750; font-size:17px; display:flex; align-items:center; gap:7px;}
+  .starBtn{ background:none; border:none; font-size:16px; padding:0 2px; line-height:1; }
   .chainBadge{ font-size:9.5px; font-weight:700; color:var(--dim); background:var(--panel2);
-    border:1px solid var(--line); padding:2px 7px; border-radius:20px; text-transform:none; letter-spacing:0.2px; }
+    border:1px solid var(--line); padding:2px 7px; border-radius:20px; letter-spacing:0.2px; }
   .tokenSources{font-size:11.5px; color:var(--dim); margin-top:4px;}
   .spreadBadge{ font-family:var(--mono); font-size:15px; font-weight:750; padding:7px 12px;
     border-radius:10px; background:#1b1f26; color:var(--dim); white-space:nowrap; }
   .spreadBadge.hot{background:var(--hot-bg); color:var(--hot);}
   .priceLine{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:13px;
-    padding:0 16px 14px; color:var(--dim); }
+    padding:0 16px 10px; color:var(--dim); }
   .priceLine b{color:var(--text); font-weight:600;}
+  .profitLine{ margin:0 16px 13px; padding:9px 12px; border-radius:9px; background:var(--panel2);
+    font-size:12.5px; display:flex; justify-content:space-between; align-items:center; }
+  .profitLine .val{font-family:var(--mono); font-weight:700; font-size:13.5px;}
+  .profitLine .val.pos{color:var(--up);}
+  .profitLine .val.neg{color:var(--down);}
   .detail{ border-top:1px solid var(--line); padding:12px 16px 14px; display:none; }
   .detail.open{display:block;}
   .detailRow{ display:flex; justify-content:space-between; align-items:center; font-size:13px;
     padding:6px 0; color:var(--dim); }
-  .detailRow span:last-child{color:var(--text); font-family:var(--mono); font-weight:600;}
+  .detailRow .right{display:flex; align-items:center; gap:8px;}
+  .detailRow span.priceVal{color:var(--text); font-family:var(--mono); font-weight:600;}
+  .detailRow a.openLink{color:var(--accent); text-decoration:none; font-size:15px;}
   .tag{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--dim);
     background:#1b1f26; padding:2px 6px; border-radius:5px; margin-right:7px; }
-  .copyBtn{ background:none; border:none; color:var(--accent); font-size:12px; font-weight:600; padding:6px 0 0; text-align:left; }
+  .actionsRow{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+  .miniBtn{ background:var(--panel2); border:1px solid var(--line); color:var(--accent); font-size:12px;
+    font-weight:600; padding:7px 11px; border-radius:9px; }
+  .honeypotResult{ margin-top:10px; padding:10px 12px; border-radius:9px; background:var(--panel2);
+    font-size:12px; line-height:1.7; }
+  .honeypotResult .ok{color:var(--up); font-weight:700;}
+  .honeypotResult .bad{color:var(--down); font-weight:700;}
+  .sparkWrap{margin-top:10px;}
+  .sparkLabel{font-size:11px; color:var(--dim); margin-bottom:4px;}
   .empty{color:var(--dim); font-size:13px; padding:30px 15px; text-align:center; line-height:1.6;}
   .skeleton{ height:74px; background:var(--panel); border:1px solid var(--line); border-radius:15px;
     margin-bottom:10px; opacity:0.5; animation:pulse 1.2s ease-in-out infinite; }
@@ -96,8 +116,8 @@
 </header>
 
 <div class="controls">
-  <div class="thresholdBox">
-    <div class="thresholdLabel"><span>Показывать споты со спредом от</span><b id="thresholdVal">5%</b></div>
+  <div class="box">
+    <div class="boxLabel"><span>Показывать споты со спредом от</span><b id="thresholdVal">5%</b></div>
     <input type="range" id="thresholdSlider" min="1" max="100" step="1" value="5">
     <div class="rangeLabels"><span>1%</span><span>100%</span></div>
     <div class="filterFootnote">
@@ -105,11 +125,38 @@
       <button class="showAllLink" id="showAllBtn">Показать все токены</button>
     </div>
   </div>
+
+  <div class="box">
+    <div class="boxLabel"><span>Размер сделки для расчёта прибыли</span></div>
+    <div class="tradeSizeRow">
+      <span>$</span>
+      <input type="number" id="tradeSizeInput" value="500" min="10" step="10">
+    </div>
+    <div class="miniNote">
+      Учитывает комиссию биржи (~0.1%), комиссию DEX-пула (~0.3%) + проскальзывание (~0.2%)
+      и примерный газ сети. Это оценка, а не гарантия — реальный результат зависит от глубины
+      стакана/пула в момент сделки.
+    </div>
+  </div>
+
+  <div class="box">
+    <div class="intervalRow">
+      <span class="boxLabel" style="margin:0">Интервал обновления</span>
+      <select class="intervalSelect" id="intervalSelect">
+        <option value="15000">15 сек</option>
+        <option value="30000">30 сек</option>
+        <option value="60000" selected>60 сек</option>
+        <option value="120000">120 сек</option>
+      </select>
+    </div>
+  </div>
+
   <div class="controlRow">
     <input class="searchInput" id="searchInput" placeholder="Поиск токена…">
     <select class="sortSelect" id="sortSelect">
       <option value="spread">По спреду ↓</option>
       <option value="name">По имени</option>
+      <option value="profit">По чистой прибыли ↓</option>
     </select>
   </div>
 </div>
@@ -123,8 +170,8 @@
   DEX (топ-10 реальных AMM): Uniswap, PancakeSwap, SushiSwap, Curve, Balancer, KyberSwap,
   QuickSwap, Trader Joe, Raydium, Orca — через публичный API DexScreener. Пулы с ликвидностью
   ниже $20 000 и цены, аномально отклоняющиеся от медианы CEX, отбрасываются автоматически.
-  Метки сетей — ориентировочные (основная сеть выпуска токена), не привязка к конкретному пулу.
-  Обновление раз в 60 сек.
+  Проверка на honeypot — через GoPlus Security API, доступна для токенов на Ethereum/BSC/Polygon/Avalanche.
+  ★ добавляет токен в избранное (сохраняется в этом браузере). Метки сетей — ориентировочные.
 </footer>
 
 <script>
@@ -132,6 +179,15 @@
 // БИРЖИ (CEX)
 // ---------------------------------------------------------------------------
 const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", kucoin:"KuCoin", gateio:"Gate.io", mexc:"MEXC", bitget:"Bitget" };
+const EXCHANGE_TRADE_URL = {
+  binance: (b) => `https://www.binance.com/en/trade/${b}_USDT`,
+  okx: (b) => `https://www.okx.com/trade-spot/${b.toLowerCase()}-usdt`,
+  bybit: (b) => `https://www.bybit.com/en/trade/spot/${b}/USDT`,
+  kucoin: (b) => `https://www.kucoin.com/trade/${b}-USDT`,
+  gateio: (b) => `https://www.gate.io/trade/${b}_USDT`,
+  mexc: (b) => `https://www.mexc.com/exchange/${b}_USDT`,
+  bitget: (b) => `https://www.bitget.com/spot/${b}USDT`,
+};
 
 function pairsFor(base) {
   const b = base;
@@ -204,7 +260,7 @@ function labelFor(key) {
 }
 
 // ---------------------------------------------------------------------------
-// СЕТИ (ориентировочно — основная сеть выпуска токена)
+// СЕТИ (ориентировочно)
 // ---------------------------------------------------------------------------
 const CHAIN_OVERRIDES = {
   BNB:"BSC", AVAX:"Avalanche", JOE:"Avalanche", MATIC:"Polygon", SOL:"Solana",
@@ -214,10 +270,112 @@ const CHAIN_OVERRIDES = {
 function chainFor(token) { return CHAIN_OVERRIDES[token.symbol] || (token.dex ? "Ethereum" : "—"); }
 
 // ---------------------------------------------------------------------------
+// РАСЧЁТ ЧИСТОЙ ПРИБЫЛИ (оценка)
+// ---------------------------------------------------------------------------
+const CEX_TAKER_FEE = 0.001;      // ~0.10%
+const DEX_SWAP_FEE = 0.003;       // ~0.30% (типично для AMM-пула)
+const AVG_SLIPPAGE = 0.002;       // ~0.20%
+const CHAIN_GAS_USD = { Ethereum:8, BSC:0.3, Polygon:0.05, Avalanche:0.5, Solana:0.02 };
+
+function estimateNetProfit(t, tradeSize) {
+  const buyIsDex = t.minSrc.startsWith("DEX");
+  const sellIsDex = t.maxSrc.startsWith("DEX");
+  const buyFeePct = buyIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : CEX_TAKER_FEE;
+  const sellFeePct = sellIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : CEX_TAKER_FEE;
+  let gas = 0;
+  const gasPerLeg = CHAIN_GAS_USD[t.chain] ?? 1;
+  if (buyIsDex) gas += gasPerLeg;
+  if (sellIsDex) gas += gasPerLeg;
+  const gross = tradeSize * (t.spread / 100);
+  const feesCost = tradeSize * (buyFeePct + sellFeePct) + gas;
+  const net = gross - feesCost;
+  return { net, netPct: (net / tradeSize) * 100, feesCost, gas };
+}
+
+// ---------------------------------------------------------------------------
+// HONEYPOT / БЕЗОПАСНОСТЬ ТОКЕНА (GoPlus, по запросу пользователя)
+// ---------------------------------------------------------------------------
+const GOPLUS_CHAIN_IDS = { Ethereum:"1", BSC:"56", Polygon:"137", Avalanche:"43114" };
+const honeypotCache = {};
+
+async function checkHoneypot(symbol, address, chain) {
+  const resultEl = document.getElementById("hp-" + symbol);
+  if (!resultEl) return;
+  const chainId = GOPLUS_CHAIN_IDS[chain];
+  if (!chainId) {
+    resultEl.innerHTML = `<div class="honeypotResult">Проверка недоступна для сети ${chain} в этой версии.</div>`;
+    return;
+  }
+  if (honeypotCache[address]) { resultEl.innerHTML = honeypotCache[address]; return; }
+  resultEl.innerHTML = `<div class="honeypotResult">Проверяю…</div>`;
+  try {
+    const d = await (await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${address}`)).json();
+    const info = d.result && d.result[address.toLowerCase()];
+    if (!info) { resultEl.innerHTML = `<div class="honeypotResult">Нет данных от GoPlus по этому адресу.</div>`; return; }
+    const isHoneypot = info.is_honeypot === "1";
+    const buyTax = info.buy_tax ? (parseFloat(info.buy_tax) * 100).toFixed(1) : "0.0";
+    const sellTax = info.sell_tax ? (parseFloat(info.sell_tax) * 100).toFixed(1) : "0.0";
+    const openSource = info.is_open_source === "1";
+    const html = `<div class="honeypotResult">
+      ${isHoneypot ? '<span class="bad">⚠️ Похоже на honeypot — возможно, продать не получится</span>' : '<span class="ok">✅ Признаков honeypot не найдено</span>'}<br>
+      Налог на покупку: ${buyTax}% · Налог на продажу: ${sellTax}%<br>
+      Исходный код: ${openSource ? 'опубликован' : 'не подтверждён'}
+    </div>`;
+    honeypotCache[address] = html;
+    resultEl.innerHTML = html;
+  } catch (e) {
+    resultEl.innerHTML = `<div class="honeypotResult">Не удалось получить данные (сервис недоступен).</div>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ИЗБРАННОЕ
+// ---------------------------------------------------------------------------
+let favorites = new Set();
+try { favorites = new Set(JSON.parse(localStorage.getItem('spreadMonitorFavorites') || '[]')); } catch(e) {}
+function toggleFavorite(symbol, event) {
+  event.stopPropagation();
+  favorites.has(symbol) ? favorites.delete(symbol) : favorites.add(symbol);
+  try { localStorage.setItem('spreadMonitorFavorites', JSON.stringify([...favorites])); } catch(e) {}
+  render();
+}
+
+// ---------------------------------------------------------------------------
+// ИСТОРИЯ СПРЕДА (для спарклайна, в рамках текущей сессии)
+// ---------------------------------------------------------------------------
+const spreadHistory = {};
+function pushHistory(symbol, spread) {
+  if (!spreadHistory[symbol]) spreadHistory[symbol] = [];
+  spreadHistory[symbol].push(spread);
+  if (spreadHistory[symbol].length > 12) spreadHistory[symbol].shift();
+}
+function sparkline(symbol) {
+  const h = spreadHistory[symbol];
+  if (!h || h.length < 2) return `<div class="sparkLabel">Копится история…</div>`;
+  const w = 240, height = 32;
+  const min = Math.min(...h), max = Math.max(...h);
+  const range = (max - min) || 1;
+  const pts = h.map((v,i) => `${(i/(h.length-1))*w},${height - ((v-min)/range)*height}`).join(' ');
+  return `<div class="sparkLabel">История спреда (последние ${h.length} обновлений)</div>
+    <svg width="${w}" height="${height}" viewBox="0 0 ${w} ${height}" preserveAspectRatio="none">
+      <polyline points="${pts}" fill="none" stroke="#5b8cff" stroke-width="2"/>
+    </svg>`;
+}
+
+// ---------------------------------------------------------------------------
+// ССЫЛКИ "ОТКРЫТЬ"
+// ---------------------------------------------------------------------------
+function openLinkFor(key, symbol, dexAddress) {
+  const [kind, name] = key.split(":");
+  if (kind === "CEX" && EXCHANGE_TRADE_URL[name]) return EXCHANGE_TRADE_URL[name](symbol);
+  if (kind === "DEX" && dexAddress) return `https://dexscreener.com/search?q=${dexAddress}`;
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // ТОКЕНЫ (~100)
 // ---------------------------------------------------------------------------
 const RAW_TOKENS = [
-  // топ по капитализации
   { symbol:"BTC",  dex:"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599" },
   { symbol:"ETH",  dex:"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" },
   { symbol:"SOL",  dex:"So11111111111111111111111111111111111111112" },
@@ -225,7 +383,6 @@ const RAW_TOKENS = [
   { symbol:"LINK", dex:"0x514910771af9ca656af840dff83e8264ecf986ca" },
   { symbol:"AVAX", dex:"0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7" },
   { symbol:"MATIC",dex:"0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0" },
-  // DeFi
   { symbol:"UNI",  dex:"0x1f9840a85d5af5bf1d1762f925bdaddc4201f984" },
   { symbol:"AAVE", dex:"0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9" },
   { symbol:"MKR",  dex:"0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2" },
@@ -246,11 +403,9 @@ const RAW_TOKENS = [
   { symbol:"ALPHA",dex:"0xa1faa113cbe53436df28ff0aee54275c13b40975" },
   { symbol:"PERP", dex:"0xbc396689893d065f41bc2c6ecbee5e0085233447" },
   { symbol:"GNO",  dex:"0x6810e776880c02933d47db1b9fc05908e5386b96" },
-  // мемкоины
   { symbol:"SHIB", dex:"0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce" },
   { symbol:"PEPE", dex:"0x6982508145454ce325ddbe47a25d4ec3d2311933" },
   { symbol:"FLOKI",dex:"0xcf0c122c6b73ff809c693db761e7baebe62b6a2e" },
-  // gaming / NFT / метавселенная
   { symbol:"SAND", dex:"0x3845badade8e6dff049820680d1f14bd3903a5d" },
   { symbol:"MANA", dex:"0x0f5d2fb29fb7d3cfee444a200298f468908cc942" },
   { symbol:"APE",  dex:"0x4d224452801aced8b2f0aebe155379bb5d594381" },
@@ -263,7 +418,6 @@ const RAW_TOKENS = [
   { symbol:"AGLD", dex:"0x32353a6c91143bfd6c7d363b546e62a9a2489a20" },
   { symbol:"SUPER",dex:"0xe53ec727dbdeb9e2d5456c3be40cff031ab40a55" },
   { symbol:"LOOKS",dex:"0xf4d2888d29d722226fafa5d9b24f9164c092421e" },
-  // инфраструктура / L2 / оракулы / AI
   { symbol:"GRT",  dex:"0xc944e90c64b2c07662a292be6244bdf05cda44a7" },
   { symbol:"ARB",  dex:"0x912ce59144191c1204e64559fe8253a0e49e6548" },
   { symbol:"OP",   dex:"0x4200000000000000000000000000000000000042" },
@@ -315,7 +469,6 @@ const RAW_TOKENS = [
   { symbol:"ETHFI",dex:"0xfe0c30065b384f05761f15d0cc899d4f9f9cc0eb" },
   { symbol:"STMX", dex:"0xbe9375c6a420d2eeb258962efb95551a5b722803" },
   { symbol:"JOE",  dex:"0x6e84a6216ea6dacc71ee8e6b0a5b7322eebc0fdd" },
-  // топ по объёму на CEX, без надёжной ликвидной DEX-пары — сравниваем только между биржами
   { symbol:"DOGE", dex:null }, { symbol:"XRP", dex:null }, { symbol:"ADA", dex:null },
   { symbol:"DOT",  dex:null }, { symbol:"LTC", dex:null }, { symbol:"TRX", dex:null },
   { symbol:"ATOM", dex:null }, { symbol:"ALGO",dex:null }, { symbol:"XLM", dex:null }, { symbol:"ICP", dex:null },
@@ -328,11 +481,13 @@ const TOKENS = RAW_TOKENS.map(t => ({ ...t, cexPairs: pairsFor(t.symbol) }));
 let openCards = new Set();
 let latestData = [];
 let threshold = 5;
-let showOnlyHot = true;   // по умолчанию список сразу отфильтрован под ползунок
+let showOnlyHot = true;
 let sortMode = "spread";
 let searchQuery = "";
+let tradeSize = 500;
 let lastLoadTime = null;
 let previouslyHot = new Set();
+let refreshTimer = null;
 
 async function fetchAllData() {
   const results = await Promise.all(TOKENS.map(async (token) => {
@@ -350,13 +505,15 @@ async function fetchAllData() {
       });
     }
 
+    const chain = chainFor(token);
     const all = { ...cex, ...dex };
     const sources = Object.entries(all).sort((a,b) => a[1]-b[1]);
-    if (sources.length < 2) return { symbol: token.symbol, chain: chainFor(token), sources, insufficient: true, dexAddress: token.dex };
+    if (sources.length < 2) return { symbol: token.symbol, chain, sources, insufficient: true, dexAddress: token.dex };
     const [minSrc, minPrice] = sources[0];
     const [maxSrc, maxPrice] = sources[sources.length-1];
     const spread = ((maxPrice - minPrice) / minPrice) * 100;
-    return { symbol: token.symbol, chain: chainFor(token), sources, minSrc, minPrice, maxSrc, maxPrice, spread, dexAddress: token.dex };
+    pushHistory(token.symbol, spread);
+    return { symbol: token.symbol, chain, sources, minSrc, minPrice, maxSrc, maxPrice, spread, dexAddress: token.dex };
   }));
   return results;
 }
@@ -369,8 +526,15 @@ function render() {
 
   if (searchQuery) list = list.filter(t => t.symbol.toLowerCase().includes(searchQuery.toLowerCase()));
   if (showOnlyHot) list = list.filter(t => t.spread >= threshold);
+
+  list.forEach(t => { t._profit = estimateNetProfit(t, tradeSize); });
+
   if (sortMode === "spread") list.sort((a,b) => b.spread - a.spread);
+  else if (sortMode === "profit") list.sort((a,b) => b._profit.net - a._profit.net);
   else list.sort((a,b) => a.symbol.localeCompare(b.symbol));
+
+  // избранное всегда наверху
+  list.sort((a,b) => (favorites.has(b.symbol)?1:0) - (favorites.has(a.symbol)?1:0));
 
   const top = [...latestData].filter(t=>!t.insufficient).sort((a,b)=>b.spread-a.spread)[0];
   const topEl = document.getElementById("topSpread");
@@ -392,16 +556,28 @@ function render() {
   main.innerHTML = list.map(t => {
     const isHot = t.spread >= threshold;
     const isOpen = openCards.has(t.symbol);
+    const isFav = favorites.has(t.symbol);
+    const p = t._profit;
+
     const detailRows = t.sources.map(([src, price]) => {
       const kind = src.split(":")[0];
-      return `<div class="detailRow"><span><span class="tag">${kind}</span>${labelFor(src)}</span><span>$${fmtPrice(price)}</span></div>`;
+      const link = openLinkFor(src, t.symbol, t.dexAddress);
+      return `<div class="detailRow">
+        <span><span class="tag">${kind}</span>${labelFor(src)}</span>
+        <span class="right"><span class="priceVal">$${fmtPrice(price)}</span>${link ? `<a class="openLink" href="${link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">↗</a>` : ''}</span>
+      </div>`;
     }).join("");
+
+    const canCheckHp = t.dexAddress && GOPLUS_CHAIN_IDS[t.chain];
 
     return `
     <div class="card ${isHot?'hot':''}">
       <div class="cardHead" onclick="toggleCard('${t.symbol}')">
         <div>
-          <div class="tokenName">${isHot?'🔥 ':''}${t.symbol} <span class="chainBadge">${t.chain}</span></div>
+          <div class="tokenName">
+            <button class="starBtn" onclick="toggleFavorite('${t.symbol}', event)">${isFav?'⭐':'☆'}</button>
+            ${isHot?'🔥 ':''}${t.symbol} <span class="chainBadge">${t.chain}</span>
+          </div>
           <div class="tokenSources">${t.sources.length} источников · ${labelFor(t.minSrc)} → ${labelFor(t.maxSrc)}</div>
         </div>
         <div class="spreadBadge ${isHot?'hot':''}">${t.spread.toFixed(2)}%</div>
@@ -410,9 +586,18 @@ function render() {
         <span>min: <b>$${fmtPrice(t.minPrice)}</b></span>
         <span>max: <b>$${fmtPrice(t.maxPrice)}</b></span>
       </div>
+      <div class="profitLine">
+        <span>Чистыми на $${tradeSize}:</span>
+        <span class="val ${p.net>0?'pos':'neg'}">${p.net>0?'+':''}$${p.net.toFixed(2)} (${p.netPct.toFixed(2)}%)</span>
+      </div>
       <div class="detail ${isOpen?'open':''}" id="detail-${t.symbol}">
         ${detailRows}
-        ${t.dexAddress ? `<button class="copyBtn" onclick="copyAddr('${t.dexAddress}', event)">📋 Скопировать адрес контракта</button>` : ''}
+        <div class="actionsRow">
+          ${t.dexAddress ? `<button class="miniBtn" onclick="event.stopPropagation(); navigator.clipboard?.writeText('${t.dexAddress}')">📋 Адрес контракта</button>` : ''}
+          ${canCheckHp ? `<button class="miniBtn" onclick="event.stopPropagation(); checkHoneypot('${t.symbol}','${t.dexAddress}','${t.chain}')">🛡️ Проверить на honeypot</button>` : ''}
+        </div>
+        <div id="hp-${t.symbol}"></div>
+        <div class="sparkWrap">${sparkline(t.symbol)}</div>
       </div>
     </div>`;
   }).join("") + (insufficientList.length && !showOnlyHot ? `<div class="sectionLabel">Недостаточно данных</div>` +
@@ -420,12 +605,6 @@ function render() {
 }
 
 function toggleCard(symbol) { openCards.has(symbol) ? openCards.delete(symbol) : openCards.add(symbol); render(); }
-
-function copyAddr(addr, event) {
-  event.stopPropagation();
-  navigator.clipboard?.writeText(addr);
-  if (window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-}
 
 async function loadAll() {
   document.getElementById("dot").classList.remove("live");
@@ -451,6 +630,11 @@ function updateStatusTime() {
   document.getElementById("status").textContent = sec < 5 ? "обновлено только что" : `обновлено ${sec} сек назад`;
 }
 
+function scheduleRefresh(intervalMs) {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(loadAll, intervalMs);
+}
+
 document.getElementById("refreshBtn").addEventListener("click", loadAll);
 document.getElementById("searchInput").addEventListener("input", (e) => { searchQuery = e.target.value; render(); });
 document.getElementById("sortSelect").addEventListener("change", (e) => { sortMode = e.target.value; render(); });
@@ -460,9 +644,16 @@ document.getElementById("thresholdSlider").addEventListener("input", (e) => {
   render();
 });
 document.getElementById("showAllBtn").addEventListener("click", () => { showOnlyHot = !showOnlyHot; render(); });
+document.getElementById("tradeSizeInput").addEventListener("input", (e) => {
+  tradeSize = Math.max(10, parseFloat(e.target.value) || 500);
+  render();
+});
+document.getElementById("intervalSelect").addEventListener("change", (e) => {
+  scheduleRefresh(parseInt(e.target.value));
+});
 
 loadAll();
-setInterval(loadAll, 60000);
+scheduleRefresh(60000);
 setInterval(updateStatusTime, 1000);
 
 if (window.Telegram && window.Telegram.WebApp) {

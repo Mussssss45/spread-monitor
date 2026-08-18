@@ -253,7 +253,9 @@
 </main>
 
 <footer>
-  CEX (6 бирж с низкими комиссиями): Binance, OKX, Bybit, Gate.io, MEXC, CoinEx.
+  CEX (7 бирж): Binance, OKX, Bybit, Gate.io, MEXC, CoinEx — низкие комиссии (~0.1%);
+  Crypto.com добавлен для более широкого покрытия и сверки, но у него базовая комиссия
+  выше (~0.4%, если не стейкать CRO) — учитывайте это в расчёте прибыли.
   Список токенов (до 500) строится динамически — берутся живые топ-500 пар по 24-часовому
   объёму на Binance (без стейблкоинов и плечевых токенов), а не набиты руками.
   DEX (топ-10 реальных AMM): Uniswap, PancakeSwap, SushiSwap, Curve, Balancer, KyberSwap,
@@ -264,13 +266,15 @@
   заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
   Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
   На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
+  <br><br><b>Версия: 2025-08-19-2</b> — если у вас с другом это число разное, значит один из
+  вас открывает старую версию файла, загруженную до этой даты. Обновите репозиторий на GitHub.
 </footer>
 
 <script>
 // ---------------------------------------------------------------------------
 // БИРЖИ (CEX)
 // ---------------------------------------------------------------------------
-const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", gateio:"Gate.io", mexc:"MEXC", coinex:"CoinEx" };
+const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", gateio:"Gate.io", mexc:"MEXC", coinex:"CoinEx", cryptocom:"Crypto.com" };
 const EXCHANGE_TRADE_URL = {
   binance: (b) => `https://www.binance.com/en/trade/${b}_USDT`,
   okx: (b) => `https://www.okx.com/trade-spot/${b.toLowerCase()}-usdt`,
@@ -278,6 +282,7 @@ const EXCHANGE_TRADE_URL = {
   gateio: (b) => `https://www.gate.io/trade/${b}_USDT`,
   mexc: (b) => `https://www.mexc.com/exchange/${b}_USDT`,
   coinex: (b) => `https://www.coinex.com/exchange/${b.toLowerCase()}-usdt`,
+  cryptocom: (b) => `https://crypto.com/exchange/trade/spot/${b}_USDT`,
 };
 const exchangeHealth = {}; // binance:true/false и т.д. — для индикатора статуса
 
@@ -356,13 +361,22 @@ async function fetchCoinexBulk() {
   });
   return prices;
 }
+async function fetchCryptocomBulk() {
+  const d = await fetchJson("https://api.crypto.com/exchange/v1/public/get-tickers");
+  const prices = new Map();
+  (d.result?.data || []).forEach(t => {
+    if (!t.i || !t.i.endsWith("_USDT")) return;
+    prices.set(t.i.replace("_USDT",""), parseFloat(t.a));
+  });
+  return prices;
+}
 
-let bulkPrices = { binance:new Map(), okx:new Map(), bybit:new Map(), gateio:new Map(), mexc:new Map(), coinex:new Map() };
+let bulkPrices = { binance:new Map(), okx:new Map(), bybit:new Map(), gateio:new Map(), mexc:new Map(), coinex:new Map(), cryptocom:new Map() };
 let binanceVolumes = new Map();
 
 async function refreshBulkPrices() {
-  const [bin, okx, bybit, gate, mexc, coinex] = await Promise.allSettled([
-    fetchBinanceBulk(), fetchOkxBulk(), fetchBybitBulk(), fetchGateioBulk(), fetchMexcBulk(), fetchCoinexBulk(),
+  const [bin, okx, bybit, gate, mexc, coinex, cryptocom] = await Promise.allSettled([
+    fetchBinanceBulk(), fetchOkxBulk(), fetchBybitBulk(), fetchGateioBulk(), fetchMexcBulk(), fetchCoinexBulk(), fetchCryptocomBulk(),
   ]);
   if (bin.status === "fulfilled") { bulkPrices.binance = bin.value.prices; binanceVolumes = bin.value.volumes; exchangeHealth.binance = true; } else exchangeHealth.binance = false;
   if (okx.status === "fulfilled") { bulkPrices.okx = okx.value; exchangeHealth.okx = true; } else exchangeHealth.okx = false;
@@ -370,6 +384,7 @@ async function refreshBulkPrices() {
   if (gate.status === "fulfilled") { bulkPrices.gateio = gate.value; exchangeHealth.gateio = true; } else exchangeHealth.gateio = false;
   if (mexc.status === "fulfilled") { bulkPrices.mexc = mexc.value; exchangeHealth.mexc = true; } else exchangeHealth.mexc = false;
   if (coinex.status === "fulfilled") { bulkPrices.coinex = coinex.value; exchangeHealth.coinex = true; } else exchangeHealth.coinex = false;
+  if (cryptocom.status === "fulfilled") { bulkPrices.cryptocom = cryptocom.value; exchangeHealth.cryptocom = true; } else exchangeHealth.cryptocom = false;
 }
 
 function getCexPrices(token) {
@@ -457,16 +472,22 @@ function applyTelegramTheme() {
 // ---------------------------------------------------------------------------
 // РАСЧЁТ ЧИСТОЙ ПРИБЫЛИ (оценка)
 // ---------------------------------------------------------------------------
-const CEX_TAKER_FEE = 0.001;      // ~0.10%
+const CEX_TAKER_FEE_DEFAULT = 0.001;  // ~0.10% — большинство бирж из списка
+const CEX_TAKER_FEE_OVERRIDES = { cryptocom: 0.004 }; // Crypto.com: ~0.40% на базовом тарифе без стейкинга CRO
 const DEX_SWAP_FEE = 0.003;       // ~0.30% (типично для AMM-пула)
 const AVG_SLIPPAGE = 0.002;       // ~0.20%
 const CHAIN_GAS_USD = { Ethereum:8, BSC:0.3, Polygon:0.05, Avalanche:0.5, Solana:0.02 };
 
+function cexFee(src) {
+  const [, name] = src.split(":");
+  return CEX_TAKER_FEE_OVERRIDES[name] ?? CEX_TAKER_FEE_DEFAULT;
+}
+
 function estimateNetProfit(t, tradeSize) {
   const buyIsDex = t.minSrc.startsWith("DEX");
   const sellIsDex = t.maxSrc.startsWith("DEX");
-  const buyFeePct = buyIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : CEX_TAKER_FEE;
-  const sellFeePct = sellIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : CEX_TAKER_FEE;
+  const buyFeePct = buyIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : cexFee(t.minSrc);
+  const sellFeePct = sellIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : cexFee(t.maxSrc);
   let gas = 0;
   const gasPerLeg = CHAIN_GAS_USD[t.chain] ?? 1;
   if (buyIsDex) gas += gasPerLeg;

@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Spread Monitor</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0c0f">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
@@ -93,6 +98,20 @@
     font-size:12px; line-height:1.7; }
   .honeypotResult .ok{color:var(--up); font-weight:700;}
   .honeypotResult .bad{color:var(--down); font-weight:700;}
+  .devTag{ font-size:10.5px; font-family:var(--mono); margin-left:6px; }
+  .devTag.low{color:var(--down);}
+  .devTag.normal{color:var(--dim);}
+  .filterRow{ display:flex; gap:8px; margin-bottom:12px; }
+  .filterRow select{ flex:1; }
+  .exportBtn{ width:100%; background:var(--panel2); border:1px solid var(--line); color:var(--accent);
+    font-size:13px; font-weight:600; padding:10px 0; border-radius:11px; margin-top:2px; }
+  .notifyToggleRow{ display:flex; align-items:center; justify-content:space-between; }
+  .switch{ width:42px; height:24px; background:var(--panel2); border:1px solid var(--line); border-radius:14px;
+    position:relative; flex-shrink:0; }
+  .switch.on{background:var(--accent); border-color:var(--accent);}
+  .switch .knob{ width:18px; height:18px; background:#fff; border-radius:50%; position:absolute; top:2px; left:2px;
+    transition:left 0.15s; }
+  .switch.on .knob{left:21px;}
   .sparkWrap{margin-top:10px;}
   .sparkLabel{font-size:11px; color:var(--dim); margin-bottom:4px;}
   .empty{color:var(--dim); font-size:13px; padding:30px 15px; text-align:center; line-height:1.6;}
@@ -159,6 +178,24 @@
       <option value="profit">По чистой прибыли ↓</option>
     </select>
   </div>
+
+  <div class="filterRow">
+    <select id="chainFilter"><option value="">Все сети</option></select>
+  </div>
+
+  <div class="box">
+    <div class="notifyToggleRow">
+      <span class="boxLabel" style="margin:0">Уведомления браузера</span>
+      <div class="switch" id="notifySwitch"><div class="knob"></div></div>
+    </div>
+    <div class="miniNote">
+      Сработает, пока страница открыта (в фоне тоже, но не гарантированно на iOS).
+      Полноценные push-уведомления при закрытом приложении требуют отдельного Telegram-бота
+      на сервере — если такое нужно, скажите, соберу отдельно.
+    </div>
+  </div>
+
+  <button class="exportBtn" id="exportBtn">⬇️ Экспортировать историю спредов в CSV</button>
 </div>
 
 <main id="main">
@@ -166,19 +203,23 @@
 </main>
 
 <footer>
-  CEX (топ-7 по объёму и низким комиссиям): Binance, OKX, Bybit, KuCoin, Gate.io, MEXC, Bitget.
+  CEX (10 бирж с низкими комиссиями): Binance, OKX, Bybit, KuCoin, Gate.io, MEXC, Bitget,
+  Poloniex, CoinEx, LBank.
   DEX (топ-10 реальных AMM): Uniswap, PancakeSwap, SushiSwap, Curve, Balancer, KyberSwap,
   QuickSwap, Trader Joe, Raydium, Orca — через публичный API DexScreener. Пулы с ликвидностью
   ниже $20 000 и цены, аномально отклоняющиеся от медианы CEX, отбрасываются автоматически.
   Проверка на honeypot — через GoPlus Security API, доступна для токенов на Ethereum/BSC/Polygon/Avalanche.
-  ★ добавляет токен в избранное (сохраняется в этом браузере). Метки сетей — ориентировочные.
+  Цифра рядом с биржей в развёрнутой карточке — отклонение её цены от медианы всех источников;
+  заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
+  Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
+  На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
 </footer>
 
 <script>
 // ---------------------------------------------------------------------------
 // БИРЖИ (CEX)
 // ---------------------------------------------------------------------------
-const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", kucoin:"KuCoin", gateio:"Gate.io", mexc:"MEXC", bitget:"Bitget" };
+const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", kucoin:"KuCoin", gateio:"Gate.io", mexc:"MEXC", bitget:"Bitget", poloniex:"Poloniex", coinex:"CoinEx", lbank:"LBank" };
 const EXCHANGE_TRADE_URL = {
   binance: (b) => `https://www.binance.com/en/trade/${b}_USDT`,
   okx: (b) => `https://www.okx.com/trade-spot/${b.toLowerCase()}-usdt`,
@@ -187,11 +228,17 @@ const EXCHANGE_TRADE_URL = {
   gateio: (b) => `https://www.gate.io/trade/${b}_USDT`,
   mexc: (b) => `https://www.mexc.com/exchange/${b}_USDT`,
   bitget: (b) => `https://www.bitget.com/spot/${b}USDT`,
+  poloniex: (b) => `https://poloniex.com/trade/${b}_USDT`,
+  coinex: (b) => `https://www.coinex.com/exchange/${b.toLowerCase()}-usdt`,
+  lbank: (b) => `https://www.lbank.com/trade/${b.toLowerCase()}_usdt`,
 };
 
 function pairsFor(base) {
   const b = base;
-  return { binance:b+"USDT", okx:b+"-USDT", bybit:b+"USDT", kucoin:b+"-USDT", gateio:b+"_USDT", mexc:b+"USDT", bitget:b+"USDT" };
+  return {
+    binance:b+"USDT", okx:b+"-USDT", bybit:b+"USDT", kucoin:b+"-USDT", gateio:b+"_USDT",
+    mexc:b+"USDT", bitget:b+"USDT", poloniex:b+"_USDT", coinex:b+"USDT", lbank:b.toLowerCase()+"_usdt",
+  };
 }
 
 const cexFetchers = {
@@ -202,6 +249,9 @@ const cexFetchers = {
   gateio: async (p) => parseFloat((await (await fetch(`https://api.gateio.ws/api/v4/spot/tickers?currency_pair=${p}`)).json())[0].last),
   mexc: async (p) => parseFloat((await (await fetch(`https://api.mexc.com/api/v3/ticker/price?symbol=${p}`)).json()).price),
   bitget: async (p) => parseFloat((await (await fetch(`https://api.bitget.com/api/v2/spot/market/tickers?symbol=${p}`)).json()).data[0].lastPr),
+  poloniex: async (p) => parseFloat((await (await fetch(`https://api.poloniex.com/markets/${p}/price`)).json()).price),
+  coinex: async (p) => parseFloat((await (await fetch(`https://api.coinex.com/v1/market/ticker?market=${p}`)).json()).data.ticker.last),
+  lbank: async (p) => parseFloat((await (await fetch(`https://api.lbkex.com/v2/ticker/24hr.do?symbol=${p}`)).json()).data[0].ticker.latest),
 };
 
 async function getCexPrices(token) {
@@ -266,8 +316,27 @@ const CHAIN_OVERRIDES = {
   BNB:"BSC", AVAX:"Avalanche", JOE:"Avalanche", MATIC:"Polygon", SOL:"Solana",
   XRP:"XRP Ledger", ADA:"Cardano", DOT:"Polkadot", LTC:"Litecoin", TRX:"Tron",
   ATOM:"Cosmos", ALGO:"Algorand", XLM:"Stellar", ICP:"Internet Computer", DOGE:"Dogecoin",
+  ARB:"Arbitrum", OP:"Optimism", NEAR:"NEAR", TON:"TON", SUI:"Sui", APT:"Aptos",
+  SEI:"Sei", TIA:"Celestia", FIL:"Filecoin", VET:"VeChain", THETA:"Theta",
+  EOS:"EOS", XTZ:"Tezos", ZEC:"Zcash", DASH:"Dash", EGLD:"MultiversX", FLOW:"Flow",
+  KAVA:"Kava", ROSE:"Oasis", IOTA:"IOTA", QTUM:"Qtum", WAVES:"Waves", KAS:"Kaspa",
 };
-function chainFor(token) { return CHAIN_OVERRIDES[token.symbol] || (token.dex ? "Ethereum" : "—"); }
+function chainFor(token) { return token.chain || CHAIN_OVERRIDES[token.symbol] || (token.dex ? "Ethereum" : "—"); }
+
+// ---------------------------------------------------------------------------
+// СИНХРОНИЗАЦИЯ ТЕМЫ С TELEGRAM
+// ---------------------------------------------------------------------------
+function applyTelegramTheme() {
+  const tg = window.Telegram?.WebApp;
+  if (!tg || !tg.themeParams || !tg.themeParams.bg_color) return;
+  const tp = tg.themeParams;
+  const root = document.documentElement.style;
+  if (tp.bg_color) root.setProperty('--bg', tp.bg_color);
+  if (tp.secondary_bg_color) root.setProperty('--panel', tp.secondary_bg_color);
+  if (tp.text_color) root.setProperty('--text', tp.text_color);
+  if (tp.hint_color) root.setProperty('--dim', tp.hint_color);
+  if (tp.button_color) root.setProperty('--accent', tp.button_color);
+}
 
 // ---------------------------------------------------------------------------
 // РАСЧЁТ ЧИСТОЙ ПРИБЫЛИ (оценка)
@@ -469,9 +538,32 @@ const RAW_TOKENS = [
   { symbol:"ETHFI",dex:"0xfe0c30065b384f05761f15d0cc899d4f9f9cc0eb" },
   { symbol:"STMX", dex:"0xbe9375c6a420d2eeb258962efb95551a5b722803" },
   { symbol:"JOE",  dex:"0x6e84a6216ea6dacc71ee8e6b0a5b7322eebc0fdd" },
+  { symbol:"CAKE", dex:"0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82", chain:"BSC" },
+  { symbol:"1INCH",dex:"0x111111111117dc0aa78b770fa6a738034120c302" },
+  { symbol:"YGG",  dex:"0x25f8087ead173b73d6e8b84329989a8eea16cf73" },
+  { symbol:"GHST", dex:"0x3f382dbd960e3a9bbceae22651e88158d002546d" },
+  { symbol:"POLS", dex:"0x83e6f1e41cdd28eaceb20cb649155049fac3d5aa" },
+  { symbol:"XYO",  dex:"0x55296f69f40ea6d20e478533c15a6b08b654e758" },
+  { symbol:"MPL",  dex:"0x33349b282065b0284d756f0577fb39c158f935e6" },
+  { symbol:"PAXG", dex:"0x45804880de22913dafe09f4980848ece6ecbaf78" },
+  { symbol:"SSV",  dex:"0x9d65ff81a3c488d585bbfb0bfe3c7707c7917f54" },
+  { symbol:"ACX",  dex:"0x44108f0223a3c3028f5fe7aec7f9bb2e66bef625" },
+  { symbol:"PENDLE",dex:"0x808507121b80c02388fad14726482e061b8da827" },
+  { symbol:"MAGIC",dex:"0x539bde0d7dbd336b79148aa742883198bbf60342", chain:"Arbitrum" },
+  { symbol:"RSR",  dex:"0x320623b8e4ff03373931769a31fc52a4e78b5d70" },
+  { symbol:"AUDIO",dex:"0x18aaa7115705e8be94bffebde57af9bfc265b998" },
+  { symbol:"GLM",  dex:"0x7dd9c5cba05e151c895fde1cf355c9a1d5da6429" },
+  { symbol:"ORN",  dex:"0x0258f474786ddfd37abce6df6bbb1dd5dfc4434a" },
   { symbol:"DOGE", dex:null }, { symbol:"XRP", dex:null }, { symbol:"ADA", dex:null },
   { symbol:"DOT",  dex:null }, { symbol:"LTC", dex:null }, { symbol:"TRX", dex:null },
   { symbol:"ATOM", dex:null }, { symbol:"ALGO",dex:null }, { symbol:"XLM", dex:null }, { symbol:"ICP", dex:null },
+  { symbol:"NEAR", dex:null }, { symbol:"TON", dex:null }, { symbol:"SUI", dex:null },
+  { symbol:"APT",  dex:null }, { symbol:"SEI", dex:null }, { symbol:"TIA", dex:null },
+  { symbol:"FIL",  dex:null }, { symbol:"VET", dex:null }, { symbol:"THETA",dex:null },
+  { symbol:"EOS",  dex:null }, { symbol:"XTZ", dex:null }, { symbol:"ZEC", dex:null },
+  { symbol:"DASH", dex:null }, { symbol:"EGLD",dex:null }, { symbol:"FLOW",dex:null },
+  { symbol:"KAVA", dex:null }, { symbol:"ROSE",dex:null }, { symbol:"IOTA",dex:null },
+  { symbol:"QTUM", dex:null }, { symbol:"WAVES",dex:null }, { symbol:"KAS",dex:null },
 ];
 const TOKENS = RAW_TOKENS.map(t => ({ ...t, cexPairs: pairsFor(t.symbol) }));
 
@@ -488,6 +580,9 @@ let tradeSize = 500;
 let lastLoadTime = null;
 let previouslyHot = new Set();
 let refreshTimer = null;
+let chainFilterValue = "";
+let notifyEnabled = false;
+let chainListPopulated = false;
 
 async function fetchAllData() {
   const results = await Promise.all(TOKENS.map(async (token) => {
@@ -526,6 +621,7 @@ function render() {
 
   if (searchQuery) list = list.filter(t => t.symbol.toLowerCase().includes(searchQuery.toLowerCase()));
   if (showOnlyHot) list = list.filter(t => t.spread >= threshold);
+  if (chainFilterValue) list = list.filter(t => t.chain === chainFilterValue);
 
   list.forEach(t => { t._profit = estimateNetProfit(t, tradeSize); });
 
@@ -562,8 +658,13 @@ function render() {
     const detailRows = t.sources.map(([src, price]) => {
       const kind = src.split(":")[0];
       const link = openLinkFor(src, t.symbol, t.dexAddress);
+      const allPrices = t.sources.map(s => s[1]);
+      const med = median(allPrices);
+      const dev = ((price - med) / med) * 100;
+      const devClass = dev < -1 ? "low" : "normal";
+      const devLabel = Math.abs(dev) >= 0.05 ? `<span class="devTag ${devClass}">${dev>0?'+':''}${dev.toFixed(2)}%</span>` : "";
       return `<div class="detailRow">
-        <span><span class="tag">${kind}</span>${labelFor(src)}</span>
+        <span><span class="tag">${kind}</span>${labelFor(src)}${devLabel}</span>
         <span class="right"><span class="priceVal">$${fmtPrice(price)}</span>${link ? `<a class="openLink" href="${link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">↗</a>` : ''}</span>
       </div>`;
     }).join("");
@@ -612,12 +713,24 @@ async function loadAll() {
 
   latestData = await fetchAllData();
   lastLoadTime = Date.now();
+
+  if (!chainListPopulated) {
+    const chains = [...new Set(latestData.filter(t=>!t.insufficient).map(t=>t.chain))].sort();
+    const sel = document.getElementById("chainFilter");
+    chains.forEach(c => { const opt = document.createElement("option"); opt.value = c; opt.textContent = c; sel.appendChild(opt); });
+    chainListPopulated = true;
+  }
+
   render();
 
   const nowHot = new Set(latestData.filter(t => !t.insufficient && t.spread >= threshold).map(t => t.symbol));
   let newHot = false;
   nowHot.forEach(s => { if (!previouslyHot.has(s)) newHot = true; });
   if (newHot && window.Telegram?.WebApp?.HapticFeedback) window.Telegram.WebApp.HapticFeedback.notificationOccurred('warning');
+  if (newHot && notifyEnabled && "Notification" in window && Notification.permission === "granted") {
+    const hotNow = latestData.filter(t => !t.insufficient && t.spread >= threshold && !previouslyHot.has(t.symbol));
+    hotNow.forEach(t => new Notification(`🔥 ${t.symbol}: спред ${t.spread.toFixed(2)}%`, { body: `${labelFor(t.minSrc)} → ${labelFor(t.maxSrc)}` }));
+  }
   previouslyHot = nowHot;
 
   document.getElementById("dot").classList.add("live");
@@ -651,7 +764,32 @@ document.getElementById("tradeSizeInput").addEventListener("input", (e) => {
 document.getElementById("intervalSelect").addEventListener("change", (e) => {
   scheduleRefresh(parseInt(e.target.value));
 });
+document.getElementById("chainFilter").addEventListener("change", (e) => { chainFilterValue = e.target.value; render(); });
+document.getElementById("notifySwitch").addEventListener("click", async () => {
+  if (!notifyEnabled) {
+    if ("Notification" in window) {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") return;
+    } else { return; }
+  }
+  notifyEnabled = !notifyEnabled;
+  document.getElementById("notifySwitch").classList.toggle("on", notifyEnabled);
+});
+document.getElementById("exportBtn").addEventListener("click", () => {
+  let csv = "symbol,timestamp_index,spread_pct\n";
+  Object.entries(spreadHistory).forEach(([symbol, arr]) => {
+    arr.forEach((v, i) => { csv += `${symbol},${i},${v.toFixed(4)}\n`; });
+  });
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `spread-history-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
 
+applyTelegramTheme();
 loadAll();
 scheduleRefresh(60000);
 setInterval(updateStatusTime, 1000);
@@ -661,6 +799,10 @@ if (window.Telegram && window.Telegram.WebApp) {
   tg.ready();
   tg.expand();
   if (tg.isVersionAtLeast && tg.isVersionAtLeast('7.7')) tg.disableVerticalSwipes();
+  tg.onEvent && tg.onEvent('themeChanged', applyTelegramTheme);
+}
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 </script>
 </body>

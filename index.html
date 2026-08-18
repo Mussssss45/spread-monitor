@@ -286,9 +286,22 @@ const exchangeHealth = {}; // binance:true/false и т.д. — для индик
 // запроса на каждую монету по отдельности (иначе 500 токенов × 6 бирж = 3000
 // запросов за цикл, что убьёт и лимиты API, и телефон).
 // ---------------------------------------------------------------------------
+// у обычного fetch нет тайм-аута — на плохой мобильной сети один зависший
+// запрос мог держать весь запуск приложения бесконечно. Ограничиваем каждый
+// запрос по времени, чтобы одна недоступная биржа не блокировала остальные.
+async function fetchJson(url, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: controller.signal });
+    return await r.json();
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 async function fetchBinanceBulk() {
-  const r = await fetch("https://api.binance.com/api/v3/ticker/24hr");
-  const d = await r.json();
+  const d = await fetchJson("https://api.binance.com/api/v3/ticker/24hr", 12000);
   const prices = new Map(), volumes = new Map();
   d.forEach(t => {
     if (!t.symbol.endsWith("USDT")) return;
@@ -299,8 +312,7 @@ async function fetchBinanceBulk() {
   return { prices, volumes };
 }
 async function fetchOkxBulk() {
-  const r = await fetch("https://www.okx.com/api/v5/market/tickers?instType=SPOT");
-  const d = await r.json();
+  const d = await fetchJson("https://www.okx.com/api/v5/market/tickers?instType=SPOT");
   const prices = new Map();
   (d.data || []).forEach(t => {
     if (!t.instId.endsWith("-USDT")) return;
@@ -309,8 +321,7 @@ async function fetchOkxBulk() {
   return prices;
 }
 async function fetchBybitBulk() {
-  const r = await fetch("https://api.bybit.com/v5/market/tickers?category=spot");
-  const d = await r.json();
+  const d = await fetchJson("https://api.bybit.com/v5/market/tickers?category=spot");
   const prices = new Map();
   (d.result?.list || []).forEach(t => {
     if (!t.symbol.endsWith("USDT")) return;
@@ -319,8 +330,7 @@ async function fetchBybitBulk() {
   return prices;
 }
 async function fetchGateioBulk() {
-  const r = await fetch("https://api.gateio.ws/api/v4/spot/tickers");
-  const d = await r.json();
+  const d = await fetchJson("https://api.gateio.ws/api/v4/spot/tickers");
   const prices = new Map();
   (d || []).forEach(t => {
     if (!t.currency_pair.endsWith("_USDT")) return;
@@ -329,8 +339,7 @@ async function fetchGateioBulk() {
   return prices;
 }
 async function fetchMexcBulk() {
-  const r = await fetch("https://api.mexc.com/api/v3/ticker/price");
-  const d = await r.json();
+  const d = await fetchJson("https://api.mexc.com/api/v3/ticker/price");
   const prices = new Map();
   (d || []).forEach(t => {
     if (!t.symbol.endsWith("USDT")) return;
@@ -339,8 +348,7 @@ async function fetchMexcBulk() {
   return prices;
 }
 async function fetchCoinexBulk() {
-  const r = await fetch("https://api.coinex.com/v1/market/ticker/all");
-  const d = await r.json();
+  const d = await fetchJson("https://api.coinex.com/v1/market/ticker/all");
   const prices = new Map();
   Object.entries(d.data?.ticker || {}).forEach(([sym, t]) => {
     if (!sym.endsWith("USDT")) return;
@@ -389,7 +397,7 @@ function median(arr) {
 
 async function getDexPrices(address) {
   try {
-    const d = await (await fetch(`https://api.dexscreener.com/latest/dex/tokens/${address}`)).json();
+    const d = await fetchJson(`https://api.dexscreener.com/latest/dex/tokens/${address}`);
     const pairs = d.pairs || [];
     const bestPerDex = {};
     pairs.forEach(p => {
@@ -486,7 +494,7 @@ async function checkHoneypot(symbol, address, chain) {
   if (honeypotCache[address]) { resultEl.innerHTML = honeypotCache[address]; return; }
   resultEl.innerHTML = `<div class="honeypotResult">Проверяю…</div>`;
   try {
-    const d = await (await fetch(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${address}`)).json();
+    const d = await fetchJson(`https://api.gopluslabs.io/api/v1/token_security/${chainId}?contract_addresses=${address}`);
     const info = d.result && d.result[address.toLowerCase()];
     if (!info) { resultEl.innerHTML = `<div class="honeypotResult">Нет данных от GoPlus по этому адресу.</div>`; return; }
     const isHoneypot = info.is_honeypot === "1";
@@ -696,7 +704,12 @@ function isLeveragedOrWeird(base) {
 // есть известный DEX-адрес — так DEX-сравнение сохраняется там, где оно возможно.
 let TOKENS = [];
 async function buildTokenUniverse() {
-  await refreshBulkPrices();
+  try {
+    await refreshBulkPrices();
+  } catch (e) {
+    // не должно происходить (каждый запрос уже обёрнут в try/timeout), но на всякий случай
+    // не даём этому месту повесить запуск приложения намертво
+  }
   const ranked = [...binanceVolumes.entries()]
     .filter(([base]) => !STABLE_EXCLUDE.has(base) && !isLeveragedOrWeird(base))
     .sort((a,b) => b[1]-a[1])
@@ -705,8 +718,8 @@ async function buildTokenUniverse() {
 
   const curatedMap = new Map(CURATED_TOKENS.map(t => [t.symbol, t]));
   const universe = ranked.map(sym => curatedMap.get(sym) || { symbol: sym, dex: null });
-  // добавляем проверенные DEX-токены, которые не попали в топ-500 по объёму на Binance,
-  // но у нас для них уже есть надёжный контракт
+  // добавляем проверенные DEX-токены, которые не попали в топ-500 по объёму на Binance
+  // (или если сам Binance был недоступен — тогда это единственные токены в списке)
   CURATED_TOKENS.forEach(t => { if (!universe.find(u => u.symbol === t.symbol)) universe.push(t); });
   TOKENS = universe;
 }
@@ -1026,6 +1039,7 @@ document.getElementById("retryBtn").addEventListener("click", loadAll);
 loadSettings();
 applySettingsToUI();
 applyTelegramTheme();
+document.getElementById("status").textContent = "загружаю список монет…";
 (async () => {
   await buildTokenUniverse();   // строим топ-500 по объёму + проверенные DEX-токены
   loadAll();

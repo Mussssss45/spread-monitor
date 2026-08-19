@@ -141,6 +141,20 @@
     margin-bottom:10px; opacity:0.5; animation:pulse 1.2s ease-in-out infinite; }
   @keyframes pulse{0%,100%{opacity:0.3;} 50%{opacity:0.55;}}
   footer{padding:20px 18px 30px; font-size:11.5px; color:var(--dim); line-height:1.7;}
+  .tagline{ font-size:13px; color:var(--text); opacity:0.85; margin-top:6px; line-height:1.45; }
+  .advancedToggle{
+    width:100%; background:var(--panel); border:1px solid var(--line); color:var(--accent);
+    font-size:13px; font-weight:600; padding:12px 15px; border-radius:13px; margin-bottom:11px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .advancedToggle .chev{ transition:transform 0.2s; }
+  .advancedToggle.open .chev{ transform:rotate(180deg); }
+  .advancedPanel{ display:none; }
+  .advancedPanel.open{ display:block; }
+  .sectionDivider{
+    font-size:12px; color:var(--dim); font-weight:700; text-transform:uppercase;
+    letter-spacing:0.6px; margin:18px 2px 10px; padding-top:4px; border-top:1px solid var(--line);
+  }
 </style>
 </head>
 <body>
@@ -154,6 +168,7 @@
     </div>
   </div>
   <div class="sub">CEX vs DEX · только проверенные источники</div>
+  <div class="tagline" id="tagline">Показывает, где токен сейчас дешевле, а где дороже — и сколько реально останется после комиссий</div>
   <div class="statusRow">
     <div class="dot" id="dot"></div>
     <div class="statusText" id="status">запуск…</div>
@@ -170,16 +185,20 @@
 
 <div class="modalOverlay" id="onboardOverlay" style="display:none">
   <div class="modalCard">
-    <h2>Как пользоваться</h2>
+    <h2>Привет 👋 Как это работает</h2>
     <ul class="helpList">
-      <li><b>Спред</b> — разница между самой низкой и самой высокой ценой токена среди всех бирж и DEX прямо сейчас.</li>
-      <li><b>min / max</b> — сама низкая и самая высокая цена и где именно.</li>
-      <li><b>Чистыми на $X</b> — оценка прибыли после комиссий, проскальзывания и газа. Это оценка, не гарантия.</li>
-      <li><b>★</b> — закрепить токен наверху списка.</li>
+      <li>Каждая карточка — токен. <b>Спред</b> — насколько цена отличается между самым дешёвым и самым дорогим местом прямо сейчас.</li>
+      <li><b>min / max</b> — где именно дешевле и где дороже.</li>
+      <li><b>Чистыми на $X</b> — оценка прибыли после всех комиссий и газа. Это оценка, не гарантия — тапните на карточку, чтобы увидеть детали.</li>
+      <li><b>★</b> — закрепить токен наверху списка. <b>🔥</b> — спред выше вашего порога.</li>
       <li><b>🛡️ Проверить на honeypot</b> — узнать, не окажется ли токен ловушкой, из которой нельзя продать.</li>
       <li><b>🦊 Открыть своп</b> — открывает Uniswap с этим токеном, подключается через MetaMask/Trust Wallet.</li>
-      <li><b>Ползунок порога</b> — показывает только токены со спредом от заданного значения.</li>
+      <li>Ползунок наверху фильтрует список — остальные настройки спрятаны под «⚙️ Дополнительные настройки».</li>
     </ul>
+    <p style="font-size:12px; color:var(--dim); margin-top:14px; line-height:1.6;">
+      ⚠️ Это информационный инструмент, не финансовый совет. Спред и прибыль — оценка на момент
+      обновления; реальный результат сделки зависит от глубины рынка в моменте. Решение всегда за вами.
+    </p>
     <button class="miniBtn" id="closeOnboard" style="width:100%; margin-top:14px;">Понятно, начать</button>
   </div>
 </div>
@@ -195,31 +214,6 @@
     </div>
   </div>
 
-  <div class="box">
-    <div class="boxLabel"><span>Размер сделки для расчёта прибыли</span></div>
-    <div class="tradeSizeRow">
-      <span>$</span>
-      <input type="number" id="tradeSizeInput" value="500" min="10" step="10">
-    </div>
-    <div class="miniNote">
-      Учитывает комиссию биржи (~0.1%), комиссию DEX-пула (~0.3%) + проскальзывание (~0.2%)
-      и примерный газ сети. Это оценка, а не гарантия — реальный результат зависит от глубины
-      стакана/пула в момент сделки.
-    </div>
-  </div>
-
-  <div class="box">
-    <div class="intervalRow">
-      <span class="boxLabel" style="margin:0">Интервал обновления</span>
-      <select class="intervalSelect" id="intervalSelect">
-        <option value="15000">15 сек</option>
-        <option value="30000">30 сек</option>
-        <option value="60000" selected>60 сек</option>
-        <option value="120000">120 сек</option>
-      </select>
-    </div>
-  </div>
-
   <div class="controlRow">
     <input class="searchInput" id="searchInput" placeholder="Поиск токена…">
     <select class="sortSelect" id="sortSelect">
@@ -229,25 +223,58 @@
     </select>
   </div>
 
-  <div class="filterRow">
-    <select id="chainFilter"><option value="">Все сети</option></select>
-  </div>
+  <button class="advancedToggle" id="advancedToggle">
+    <span>⚙️ Дополнительные настройки</span>
+    <span class="chev">▾</span>
+  </button>
 
-  <div class="box">
-    <div class="notifyToggleRow">
-      <span class="boxLabel" style="margin:0">Уведомления браузера</span>
-      <div class="switch" id="notifySwitch"><div class="knob"></div></div>
+  <div class="advancedPanel" id="advancedPanel">
+    <div class="box">
+      <div class="boxLabel"><span>Размер сделки для расчёта прибыли</span></div>
+      <div class="tradeSizeRow">
+        <span>$</span>
+        <input type="number" id="tradeSizeInput" value="500" min="10" step="10">
+      </div>
+      <div class="miniNote">
+        Учитывает комиссию биржи, комиссию DEX-пула (~0.3%) + проскальзывание (~0.2%)
+        и примерный газ сети. Это оценка, а не гарантия — реальный результат зависит от глубины
+        стакана/пула в момент сделки.
+      </div>
     </div>
-    <div class="miniNote">
-      Сработает, пока страница открыта (в фоне тоже, но не гарантированно на iOS).
-      Полноценные push-уведомления при закрытом приложении требуют отдельного Telegram-бота
-      на сервере — если такое нужно, скажите, соберу отдельно.
-    </div>
-  </div>
 
-  <button class="exportBtn" id="exportBtn">⬇️ Экспортировать историю спредов в CSV</button>
+    <div class="box">
+      <div class="intervalRow">
+        <span class="boxLabel" style="margin:0">Интервал обновления</span>
+        <select class="intervalSelect" id="intervalSelect">
+          <option value="15000">15 сек</option>
+          <option value="30000">30 сек</option>
+          <option value="60000" selected>60 сек</option>
+          <option value="120000">120 сек</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="filterRow">
+      <select id="chainFilter"><option value="">Все сети</option></select>
+    </div>
+
+    <div class="box">
+      <div class="notifyToggleRow">
+        <span class="boxLabel" style="margin:0">Уведомления браузера</span>
+        <div class="switch" id="notifySwitch"><div class="knob"></div></div>
+      </div>
+      <div class="miniNote">
+        Сработает, пока страница открыта (в фоне тоже, но не гарантированно на iOS).
+        Полноценные push-уведомления при закрытом приложении требуют отдельного Telegram-бота
+        на сервере — если такое нужно, скажите, соберу отдельно.
+      </div>
+    </div>
+
+    <button class="exportBtn" id="exportBtn">⬇️ Экспортировать историю спредов в CSV</button>
+  </div>
 </div>
 
+<div class="sectionDivider" id="tokensDivider" style="margin-left:14px; margin-right:14px;">Токены</div>
 <main id="main">
   <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
 </main>
@@ -266,7 +293,7 @@
   заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
   Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
   На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
-  <br><br><b>Версия: 2025-08-19-2</b> — если у вас с другом это число разное, значит один из
+  <br><br><b>Версия: 2025-08-19-3</b> — если у вас с другом это число разное, значит один из
   вас открывает старую версию файла, загруженную до этой даты. Обновите репозиторий на GitHub.
 </footer>
 
@@ -992,6 +1019,10 @@ document.getElementById("intervalSelect").addEventListener("change", (e) => {
   saveSettings();
 });
 document.getElementById("chainFilter").addEventListener("change", (e) => { chainFilterValue = e.target.value; saveSettings(); render(); });
+document.getElementById("advancedToggle").addEventListener("click", () => {
+  document.getElementById("advancedPanel").classList.toggle("open");
+  document.getElementById("advancedToggle").classList.toggle("open");
+});
 document.getElementById("notifySwitch").addEventListener("click", async () => {
   if (!notifyEnabled) {
     if ("Notification" in window) {

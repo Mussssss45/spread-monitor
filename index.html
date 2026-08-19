@@ -195,6 +195,7 @@
   </div>
   <div class="topSpread" id="topSpread" style="display:none"></div>
   <div class="countBadge" id="exchangeStatus"></div>
+  <div class="countBadge" id="exchangeNote" style="display:none; color:var(--hot); margin-top:4px; line-height:1.5;"></div>
 </header>
 
 <div class="errorBanner" id="errorBanner" style="display:none">
@@ -313,7 +314,7 @@
   заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
   Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
   На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
-  <br><br><b>Версия: 2025-08-19-4</b> — если у вас с другом это число разное, значит один из
+  <br><br><b>Версия: 2025-08-19-5</b> — если у вас с другом это число разное, значит один из
   вас открывает старую версию файла, загруженную до этой даты. Обновите репозиторий на GitHub.
 </footer>
 
@@ -964,7 +965,7 @@ function render() {
         <span>max: <b>$${fmtPrice(t.maxPrice)}</b></span>
       </div>
       <div class="profitLine">
-        <span>Чистыми на $${tradeSize}:</span>
+        <span>Чистыми на $${tradeSize}:${t.minSrc.startsWith('DEX') && t.maxSrc.startsWith('DEX') ? ' <span style="opacity:0.6">(2× газ)</span>' : ''}</span>
         <span class="val ${p.net>0?'pos':'neg'}">${p.net>0?'+':''}$${p.net.toFixed(2)} (${p.netPct.toFixed(2)}%)</span>
       </div>
       <div class="detail ${isOpen?'open':''}" id="detail-${t.symbol}">
@@ -1026,6 +1027,15 @@ function updateExchangeStatus() {
     return `${dot} ${EXCHANGE_NAMES[ex]}`;
   });
   el.textContent = parts.join("  ·  ");
+
+  const downCount = Object.values(exchangeHealth).filter(v => v === false).length;
+  const noteEl = document.getElementById("exchangeNote");
+  if (downCount >= 3) {
+    noteEl.style.display = "block";
+    noteEl.textContent = `⚠️ ${downCount} бирж(и) не отвечают — скорее всего они блокируют доступ из вашего региона (это на стороне биржи, не баг приложения). Сравнение идёт по оставшимся доступным источникам.`;
+  } else {
+    noteEl.style.display = "none";
+  }
 }
 
 function updateStatusTime() {

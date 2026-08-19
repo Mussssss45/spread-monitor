@@ -212,7 +212,7 @@
       <li><b>Чистыми на $X</b> — оценка прибыли после всех комиссий и газа. Это оценка, не гарантия — тапните на карточку, чтобы увидеть детали.</li>
       <li><b>★</b> — закрепить токен наверху списка. <b>🔥</b> — спред выше вашего порога.</li>
       <li><b>🛡️ Проверить на honeypot</b> — узнать, не окажется ли токен ловушкой, из которой нельзя продать.</li>
-      <li><b>🦊 Открыть своп</b> — открывает Uniswap с этим токеном, подключается через MetaMask/Trust Wallet.</li>
+      <li><b>🦊 Открыть в MetaMask</b> — появляется только если Uniswap реально один из источников; принудительно открывает встроенный браузер MetaMask (не сторонний браузер телефона) с этим токеном. Это одна сделка (не связка купить+продать — такой функции у кошельков не существует). Для других DEX используйте ↗ у нужного источника — он ведёт на DexScreener, точно на тот пул.</li>
       <li>Ползунок наверху фильтрует список — остальные настройки спрятаны под «⚙️ Дополнительные настройки».</li>
     </ul>
     <p style="font-size:12px; color:var(--dim); margin-top:14px; line-height:1.6;">
@@ -257,8 +257,10 @@
       </div>
       <div class="miniNote">
         Учитывает комиссию биржи, комиссию DEX-пула (~0.3%) + проскальзывание (~0.2%)
-        и примерный газ сети. Это оценка, а не гарантия — реальный результат зависит от глубины
-        стакана/пула в момент сделки.
+        и живую цену газа сети Ethereum (обновляется каждый цикл, не константа). Это оценка,
+        а не гарантия — реальный результат зависит от глубины стакана/пула в момент сделки.
+        На маленьких суммах ($10-100) газ на Ethereum часто съедает весь спред — это нормально,
+        не баг: увеличьте размер сделки или смотрите токены на дешёвых сетях (BSC/Polygon/Solana).
       </div>
     </div>
 
@@ -314,7 +316,7 @@
   заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
   Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
   На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
-  <br><br><b>Версия: 2025-08-19-5</b> — если у вас с другом это число разное, значит один из
+  <br><br><b>Версия: 2025-08-19-7</b> — если у вас с другом это число разное, значит один из
   вас открывает старую версию файла, загруженную до этой даты. Обновите репозиторий на GitHub.
 </footer>
 
@@ -536,7 +538,41 @@ const CEX_TAKER_FEE_DEFAULT = 0.001;  // ~0.10% — большинство би�
 const CEX_TAKER_FEE_OVERRIDES = { cryptocom: 0.004 }; // Crypto.com: ~0.40% на базовом тарифе без стейкинга CRO
 const DEX_SWAP_FEE = 0.003;       // ~0.30% (типично для AMM-пула)
 const AVG_SLIPPAGE = 0.002;       // ~0.20%
-const CHAIN_GAS_USD = { Ethereum:8, BSC:0.3, Polygon:0.05, Avalanche:0.5, Solana:0.02 };
+// живая цена газа вместо захардкоженной константы — обновляется раз в цикл обновления
+const CHAIN_GAS_UNITS_SWAP = 150000; // типичный расход газа на своп в Uniswap-подобном пуле
+let liveEthGasCostUsd = 8; // запасное значение, пока не пришли реальные данные
+const CHAIN_GAS_USD_STATIC = { BSC:0.3, Polygon:0.05, Avalanche:0.5, Solana:0.02, Arbitrum:0.3, Optimism:0.2, Base:0.05 };
+
+async function refreshLiveGas() {
+  try {
+    const rpcResult = await fetchJson2("https://cloudflare-eth.com", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc:"2.0", method:"eth_gasPrice", params:[], id:1 }),
+    });
+    const gasPriceWei = parseInt(rpcResult.result, 16);
+    const gasPriceGwei = gasPriceWei / 1e9;
+    const ethPriceUsd = bulkPrices.binance?.get("ETH") || 3000;
+    liveEthGasCostUsd = (gasPriceGwei * 1e9 * CHAIN_GAS_UNITS_SWAP / 1e18) * ethPriceUsd;
+  } catch (e) {
+    // оставляем предыдущее известное значение при сбое запроса
+  }
+}
+async function fetchJson2(url, options, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { ...options, signal: controller.signal });
+    return await r.json();
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+function gasForChain(chain) {
+  if (chain === "Ethereum") return liveEthGasCostUsd;
+  return CHAIN_GAS_USD_STATIC[chain] ?? 1;
+}
 
 function cexFee(src) {
   const [, name] = src.split(":");
@@ -549,7 +585,7 @@ function estimateNetProfit(t, tradeSize) {
   const buyFeePct = buyIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : cexFee(t.minSrc);
   const sellFeePct = sellIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : cexFee(t.maxSrc);
   let gas = 0;
-  const gasPerLeg = CHAIN_GAS_USD[t.chain] ?? 1;
+  const gasPerLeg = gasForChain(t.chain);
   if (buyIsDex) gas += gasPerLeg;
   if (sellIsDex) gas += gasPerLeg;
   const gross = tradeSize * (t.spread / 100);
@@ -639,12 +675,33 @@ function openLinkFor(key, symbol, dexAddress) {
   if (kind === "DEX" && dexAddress) return `https://dexscreener.com/search?q=${dexAddress}`;
   return null;
 }
-// прямая ссылка на своп в Uniswap с уже подставленным токеном — открывается
-// в браузере кошелька (MetaMask/Trust Wallet) и сразу подключает его
-function swapLinkFor(chain, dexAddress) {
+// прямая ссылка на своп в Uniswap с уже подставленным токеном.
+// Показываем её ТОЛЬКО если Uniswap реально был одним из источников в
+// карточке — иначе кнопка вела бы не туда, откуда взята цена (например,
+// если сигнал был Curve→X, а мы всё равно открывали бы Uniswap).
+//
+// "Связки купить+продать одним кликом" в MetaMask НЕ существует — у кошелька
+// нет такой функции (официальная документация MetaMask подтверждает: есть
+// только /send, /buy, /sell и /dapp/{url} для открытия сайта внутри их
+// браузера). Купить на одном DEX и продать на другом — это две отдельные
+// транзакции, между которыми цена может измениться; по-настоящему атомарная
+// связка требует своего смарт-контракта (флэш-своп), а не просто ссылки.
+//
+// Что реально можно сделать — гарантировать, что ссылка откроется ИМЕННО в
+// приложении MetaMask (через его встроенный браузер), а не в случайном
+// браузере телефона. Для этого оборачиваем адрес в официальный deep-link
+// metamask.app.link/dapp/... — это форсирует открытие именно MetaMask.
+function wrapInMetaMask(url) {
+  const withoutProtocol = url.replace(/^https?:\/\//, "");
+  return `https://metamask.app.link/dapp/${withoutProtocol}`;
+}
+function swapLinkFor(chain, dexAddress, sources) {
   const slug = UNISWAP_CHAIN_SLUG[chain];
   if (!slug || !dexAddress) return null;
-  return `https://app.uniswap.org/swap?outputCurrency=${dexAddress}&chain=${slug}`;
+  const hasUniswapSource = sources.some(([src]) => src === "DEX:uniswap");
+  if (!hasUniswapSource) return null;
+  const uniswapUrl = `https://app.uniswap.org/swap?outputCurrency=${dexAddress}&chain=${slug}`;
+  return wrapInMetaMask(uniswapUrl);
 }
 
 // ---------------------------------------------------------------------------
@@ -854,7 +911,7 @@ function applySettingsToUI() {
 }
 
 async function fetchAllData() {
-  await refreshBulkPrices();
+  await Promise.allSettled([refreshBulkPrices(), refreshLiveGas()]);
   const results = await Promise.all(TOKENS.map(async (token) => {
     const cex = getCexPrices(token);
     const dex = token.dex ? await getDexPrices(token.dex) : {};
@@ -943,7 +1000,7 @@ function render() {
     }).join("");
 
     const canCheckHp = t.dexAddress && GOPLUS_CHAIN_IDS[t.chain];
-    const swapLink = swapLinkFor(t.chain, t.dexAddress);
+    const swapLink = swapLinkFor(t.chain, t.dexAddress, t.sources);
 
     return `
     <div class="card ${isHot?'hot':''}" style="animation-delay:${animDelay}s">
@@ -973,7 +1030,7 @@ function render() {
         <div class="actionsRow">
           ${t.dexAddress ? `<button class="miniBtn" onclick="event.stopPropagation(); navigator.clipboard?.writeText('${t.dexAddress}')">📋 Адрес контракта</button>` : ''}
           ${canCheckHp ? `<button class="miniBtn" onclick="event.stopPropagation(); checkHoneypot('${t.symbol}','${t.dexAddress}','${t.chain}')">🛡️ Проверить на honeypot</button>` : ''}
-          ${swapLink ? `<a class="miniBtn" style="text-decoration:none; display:inline-block" href="${swapLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🦊 Открыть своп (MetaMask/Trust)</a>` : ''}
+          ${swapLink ? `<a class="miniBtn" style="text-decoration:none; display:inline-block" href="${swapLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🦊 Открыть в MetaMask</a>` : ''}
         </div>
         <div id="hp-${t.symbol}"></div>
         <div class="sparkWrap">${sparkline(t.symbol)}</div>

@@ -192,6 +192,7 @@
   .tabBtn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   .tabPanel{ display:none; }
   .tabPanel.active{ display:block; }
+  #bannerBlock.collapsed{ display:none; }
   .tagline{ font-size:13px; color:var(--text); opacity:0.85; margin-top:6px; line-height:1.45; }
   .advancedToggle{
     width:100%; background:var(--panel); border:1px solid var(--line); color:var(--accent);
@@ -224,10 +225,13 @@
     <div class="dot" id="dot"></div>
     <div class="statusText" id="status">запуск…</div>
     <button class="refreshBtn" id="refreshBtn">Обновить</button>
+    <button class="refreshBtn" id="bannerToggleBtn" style="margin-left:6px;">▾</button>
   </div>
-  <div class="topSpread" id="topSpread" style="display:none"></div>
-  <div class="countBadge" id="exchangeStatus"></div>
-  <div class="countBadge" id="exchangeNote" style="display:none; color:var(--hot); margin-top:4px; line-height:1.5;"></div>
+  <div id="bannerBlock">
+    <div class="topSpread" id="topSpread" style="display:none"></div>
+    <div class="countBadge" id="exchangeStatus"></div>
+    <div class="countBadge" id="exchangeNote" style="display:none; color:var(--hot); margin-top:4px; line-height:1.5;"></div>
+  </div>
 </header>
 
 <div class="tabRow">
@@ -382,7 +386,7 @@
   заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
   Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
   На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
-  <br><br><b>Версия: 2025-08-19-8</b> — если у вас с другом это число разное, значит один из
+  <br><br><b>Версия: 2025-08-19-9</b> — если у вас с другом это число разное, значит один из
   вас открывает старую версию файла, загруженную до этой даты. Обновите репозиторий на GitHub.
 </footer>
 
@@ -583,18 +587,12 @@ const CHAIN_OVERRIDES = {
 function chainFor(token) { return token.chain || CHAIN_OVERRIDES[token.symbol] || (token.dex ? "Ethereum" : "—"); }
 
 // ---------------------------------------------------------------------------
-// СИНХРОНИЗАЦИЯ ТЕМЫ С TELEGRAM
+// СИНХРОНИЗАЦИЯ ТЕМЫ С TELEGRAM — отключено: у приложения теперь свой
+// продуманный светлый liquid glass дизайн, подстройка под тёмную тему
+// Telegram затирала его. Если понадобится опционально — можно вернуть.
 // ---------------------------------------------------------------------------
 function applyTelegramTheme() {
-  const tg = window.Telegram?.WebApp;
-  if (!tg || !tg.themeParams || !tg.themeParams.bg_color) return;
-  const tp = tg.themeParams;
-  const root = document.documentElement.style;
-  if (tp.bg_color) root.setProperty('--bg', tp.bg_color);
-  if (tp.secondary_bg_color) root.setProperty('--panel', tp.secondary_bg_color);
-  if (tp.text_color) root.setProperty('--text', tp.text_color);
-  if (tp.hint_color) root.setProperty('--dim', tp.hint_color);
-  if (tp.button_color) root.setProperty('--accent', tp.button_color);
+  // намеренно ничего не делает
 }
 
 // ---------------------------------------------------------------------------
@@ -982,6 +980,21 @@ async function fetchAllData() {
     const cex = getCexPrices(token);
     const dex = token.dex ? await getDexPrices(token.dex) : {};
 
+    // санити-фильтр №1: коллизия тикеров между CEX. Один и тот же символ
+    // (например "DATA") иногда используют совершенно разные, никак не
+    // связанные проекты на разных биржах — тогда "спред" получается
+    // бессмысленным (тысячи процентов). При 3+ источниках отбрасываем те,
+    // что сильно выбиваются из медианы среди самих CEX.
+    let cexValsRaw = Object.values(cex);
+    if (cexValsRaw.length >= 3) {
+      const cexMedian = median(cexValsRaw);
+      Object.keys(cex).forEach(k => {
+        const ratio = cex[k] / cexMedian;
+        if (ratio > MAX_DEVIATION_FROM_CEX || ratio < 1 / MAX_DEVIATION_FROM_CEX) delete cex[k];
+      });
+    }
+
+    // санити-фильтр №2: DEX-цена не должна аномально отличаться от CEX
     const cexVals = Object.values(cex);
     if (cexVals.length) {
       const m = median(cexVals);
@@ -1193,6 +1206,24 @@ document.getElementById("intervalSelect").addEventListener("change", (e) => {
   saveSettings();
 });
 document.getElementById("chainFilter").addEventListener("change", (e) => { chainFilterValue = e.target.value; saveSettings(); render(); });
+
+// сворачивание баннера (макс. спред + статус бирж) — состояние запоминается
+(function initBannerToggle() {
+  const block = document.getElementById("bannerBlock");
+  const btn = document.getElementById("bannerToggleBtn");
+  let collapsed = false;
+  try { collapsed = localStorage.getItem('spreadMonitorBannerCollapsed') === '1'; } catch(e) {}
+  function apply() {
+    block.classList.toggle("collapsed", collapsed);
+    btn.textContent = collapsed ? "▸" : "▾";
+  }
+  apply();
+  btn.addEventListener("click", () => {
+    collapsed = !collapsed;
+    try { localStorage.setItem('spreadMonitorBannerCollapsed', collapsed ? '1' : '0'); } catch(e) {}
+    apply();
+  });
+})();
 document.getElementById("advancedToggle").addEventListener("click", () => {
   document.getElementById("advancedPanel").classList.toggle("open");
   document.getElementById("advancedToggle").classList.toggle("open");

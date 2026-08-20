@@ -9,20 +9,31 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#0a0c0f">
+<meta name="theme-color" content="#eef1f6">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
-    --bg:#0a0c0f; --panel:#13161c; --panel2:#181c23; --line:#242830;
-    --text:#eef0f3; --dim:#88909a; --up:#4fd68a; --down:#ff5c5c;
-    --hot:#ff8a5c; --hot-bg:rgba(255,138,92,0.13); --accent:#5b8cff;
+    --bg:#eef1f6; --panel:rgba(255,255,255,0.58); --panel2:rgba(255,255,255,0.4);
+    --line:rgba(15,23,42,0.08); --text:#1a1d29; --dim:#6b7280;
+    --up:#16a34a; --down:#ef4444; --hot:#ea580c; --hot-bg:rgba(234,88,12,0.12);
+    --accent:#4f46e5;
     --mono: 'SF Mono', 'Roboto Mono', ui-monospace, Menlo, Consolas, monospace;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  body{ margin:0; background:var(--bg); color:var(--text);
+  html{background:var(--bg);}
+  body{ margin:0; background:var(--bg); color:var(--text); position:relative; overflow-x:hidden;
     font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding-bottom:40px; }
-  header{ position:sticky; top:0; z-index:5; background:rgba(10,12,15,0.97); backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--line); padding:16px 16px 14px; }
+  body::before{
+    content:""; position:fixed; inset:0; z-index:-1;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(99,102,241,0.30), transparent 42%),
+      radial-gradient(circle at 88% 12%, rgba(234,88,12,0.20), transparent 42%),
+      radial-gradient(circle at 78% 82%, rgba(22,163,74,0.22), transparent 46%),
+      radial-gradient(circle at 15% 85%, rgba(236,72,153,0.20), transparent 42%),
+      var(--bg);
+  }
+  header{ position:sticky; top:0; z-index:5; background:rgba(255,255,255,0.55); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%);
+    border-bottom:1px solid var(--line); padding:16px 16px 14px; box-shadow:0 1px 0 rgba(255,255,255,0.6) inset; }
   h1{font-size:19px; margin:0 0 3px; font-weight:750;}
   .sub{font-size:12px; color:var(--dim);}
   .statusRow{display:flex; align-items:center; gap:8px; margin-top:11px;}
@@ -33,7 +44,7 @@
     color:var(--text); font-size:12.5px; padding:7px 13px; border-radius:20px; font-weight:600; }
   .refreshBtn:active{opacity:0.6;}
   .topSpread{ margin-top:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    background:var(--hot-bg); border:1px solid rgba(255,138,92,0.28); border-radius:11px;
+    background:var(--hot-bg); border:1px solid rgba(234,88,12,0.28); border-radius:11px;
     padding:10px 13px; font-size:12.5px; }
   .topSpread b{color:var(--hot); font-family:var(--mono); font-size:14px;}
 
@@ -69,9 +80,9 @@
     animation:cardIn 0.28s ease-out backwards; box-shadow:0 1px 2px rgba(0,0,0,0.2); }
   .card:active{ transform:scale(0.985); }
   .card.hot{
-    border-color:rgba(255,138,92,0.55);
-    background:linear-gradient(155deg, rgba(255,138,92,0.10), var(--panel) 55%);
-    box-shadow:0 2px 14px rgba(255,138,92,0.12);
+    border-color:rgba(234,88,12,0.55);
+    background:linear-gradient(155deg, rgba(234,88,12,0.10), var(--panel) 55%);
+    box-shadow:0 2px 14px rgba(234,88,12,0.12);
   }
   .cardHead{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; gap:12px; cursor:pointer; }
   .cardHeadLeft{ display:flex; align-items:center; gap:11px; min-width:0; }
@@ -86,7 +97,7 @@
     border:1px solid var(--line); padding:2px 7px; border-radius:20px; letter-spacing:0.2px; }
   .tokenSources{font-size:11.5px; color:var(--dim); margin-top:4px;}
   .spreadBadge{ font-family:var(--mono); font-size:15px; font-weight:750; padding:7px 12px;
-    border-radius:10px; background:#1b1f26; color:var(--dim); white-space:nowrap; }
+    border-radius:10px; background:rgba(15,23,42,0.06); color:var(--dim); white-space:nowrap; }
   .spreadBadge.hot{
     background:linear-gradient(135deg, #ff8a5c, #ff5c7a); color:#fff;
     box-shadow:0 2px 10px rgba(255,120,100,0.35);
@@ -108,9 +119,9 @@
   .detailRow span.priceVal{color:var(--text); font-family:var(--mono); font-weight:600;}
   .detailRow a.openLink{color:var(--accent); text-decoration:none; font-size:15px;}
   .tag{ font-size:9.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--dim);
-    background:#1b1f26; padding:2px 6px; border-radius:5px; margin-right:7px; }
-  .tag.cex{ color:#7ea6ff; background:rgba(91,140,255,0.12); }
-  .tag.dex{ color:#4fd68a; background:rgba(79,214,138,0.12); }
+    background:rgba(15,23,42,0.06); padding:2px 6px; border-radius:5px; margin-right:7px; }
+  .tag.cex{ color:#3b5bdb; background:rgba(59,91,219,0.12); }
+  .tag.dex{ color:#15803d; background:rgba(21,128,61,0.12); }
   .actionsRow{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
   .miniBtn{ background:var(--panel2); border:1px solid var(--line); color:var(--accent); font-size:12px;
     font-weight:600; padding:7px 11px; border-radius:9px; }
@@ -160,6 +171,27 @@
     margin-bottom:10px; opacity:0.5; animation:pulse 1.2s ease-in-out infinite; }
   @keyframes pulse{0%,100%{opacity:0.3;} 50%{opacity:0.55;}}
   footer{padding:20px 18px 30px; font-size:11.5px; color:var(--dim); line-height:1.7;}
+
+  /* --- Liquid glass: применяем размытие фона ко всем "стеклянным" панелям --- */
+  .box, .card, .modalCard, .searchInput, .sortSelect, .intervalSelect,
+  .refreshBtn, .advancedToggle, .exportBtn, .miniBtn, .skeleton, .honeypotResult,
+  .tabBtn, .venueCard{
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    box-shadow: 0 4px 24px rgba(15,23,42,0.06), 0 1px 0 rgba(255,255,255,0.7) inset;
+  }
+  .card.hot, .card:hover{ box-shadow: 0 6px 28px rgba(234,88,12,0.12), 0 1px 0 rgba(255,255,255,0.7) inset; }
+  ::selection{ background: rgba(79,70,229,0.2); }
+
+  /* --- Переключатель вкладок --- */
+  .tabRow{ display:flex; gap:8px; padding:0 16px; margin-top:12px; }
+  .tabBtn{
+    flex:1; background:var(--panel); border:1px solid var(--line); color:var(--dim);
+    font-size:13px; font-weight:700; padding:10px 0; border-radius:13px; text-align:center;
+  }
+  .tabBtn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .tabPanel{ display:none; }
+  .tabPanel.active{ display:block; }
   .tagline{ font-size:13px; color:var(--text); opacity:0.85; margin-top:6px; line-height:1.45; }
   .advancedToggle{
     width:100%; background:var(--panel); border:1px solid var(--line); color:var(--accent);
@@ -197,6 +229,13 @@
   <div class="countBadge" id="exchangeStatus"></div>
   <div class="countBadge" id="exchangeNote" style="display:none; color:var(--hot); margin-top:4px; line-height:1.5;"></div>
 </header>
+
+<div class="tabRow">
+  <button class="tabBtn active" id="tabSpreadBtn">📊 Спреды</button>
+  <button class="tabBtn" id="tabFundingBtn">💰 Funding Rate</button>
+</div>
+
+<div class="tabPanel active" id="tabSpreadPanel">
 
 <div class="errorBanner" id="errorBanner" style="display:none">
   ⚠️ Не удалось получить данные ни с одной биржи. Проверьте интернет-соединение.
@@ -302,6 +341,33 @@
   <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
 </main>
 
+</div><!-- /tabSpreadPanel -->
+
+<div class="tabPanel" id="tabFundingPanel">
+  <div style="padding:14px 14px 0;">
+    <div class="box" style="background:var(--hot-bg); border-color:rgba(234,88,12,0.25);">
+      <div style="font-size:13px; line-height:1.6;">
+        ⚠️ <b>Это не то же самое, что спред выше.</b> Здесь сравнивается ставка финансирования
+        (funding rate) бессрочных фьючерсов между площадками — реальная стратегия, но с плечом
+        и риском ликвидации. Это не "купил дёшево — продал дорого", а ставка на то, куда качнётся
+        funding. Требует открытия маржинальной позиции, не разовый своп.
+      </div>
+    </div>
+    <div class="box">
+      <div class="boxLabel"><span>Площадки</span></div>
+      <div style="font-size:12.5px; color:var(--dim); line-height:1.7;">
+        <b>Perp DEX:</b> Hyperliquid, Aster &nbsp;·&nbsp; <b>CEX Perps:</b> Binance Futures, Bybit Perps<br>
+        Funding нормализован в годовых (APR) для честного сравнения между площадками с разным
+        интервалом выплат (Hyperliquid — каждый час, остальные — каждые 8 часов).
+      </div>
+    </div>
+  </div>
+  <div class="sectionDivider" style="margin-left:14px; margin-right:14px;">Funding Rate (APR)</div>
+  <main id="fundingMain">
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+  </main>
+</div>
+
 <footer>
   CEX (7 бирж): Binance, OKX, Bybit, Gate.io, MEXC, CoinEx — низкие комиссии (~0.1%);
   Crypto.com добавлен для более широкого покрытия и сверки, но у него базовая комиссия
@@ -316,7 +382,7 @@
   заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
   Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
   На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
-  <br><br><b>Версия: 2025-08-19-7</b> — если у вас с другом это число разное, значит один из
+  <br><br><b>Версия: 2025-08-19-8</b> — если у вас с другом это число разное, значит один из
   вас открывает старую версию файла, загруженную до этой даты. Обновите репозиторий на GitHub.
 </footer>
 
@@ -1210,6 +1276,138 @@ if (window.Telegram && window.Telegram.WebApp) {
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }
+
+// ===========================================================================
+// FUNDING RATE (perp DEX vs CEX perps) — отдельный раздел, отдельная механика
+// ===========================================================================
+const FUNDING_SYMBOLS = ["BTC","ETH","SOL","BNB","AVAX","LINK","ARB","OP","DOGE","XRP","ADA","SUI","APT","NEAR","LTC"];
+
+async function fetchHyperliquidFunding() {
+  const d = await fetchJson2("https://api.hyperliquid.xyz/info", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "metaAndAssetCtxs" }),
+  });
+  const [meta, ctxs] = d;
+  const out = new Map();
+  meta.universe.forEach((u, i) => {
+    const ctx = ctxs[i];
+    if (!ctx || !ctx.funding) return;
+    const hourlyRate = parseFloat(ctx.funding);
+    out.set(u.name, { rate: hourlyRate, aprPct: hourlyRate * 24 * 365 * 100 });
+  });
+  return out;
+}
+async function fetchAsterFunding() {
+  const d = await fetchJson("https://fapi.asterdex.com/fapi/v1/premiumIndex");
+  const out = new Map();
+  (d || []).forEach(t => {
+    if (!t.symbol.endsWith("USDT")) return;
+    const base = t.symbol.slice(0, -4);
+    const rate8h = parseFloat(t.lastFundingRate);
+    out.set(base, { rate: rate8h, aprPct: rate8h * 3 * 365 * 100 });
+  });
+  return out;
+}
+async function fetchBinanceFundingBulk() {
+  const d = await fetchJson("https://fapi.binance.com/fapi/v1/premiumIndex");
+  const out = new Map();
+  (d || []).forEach(t => {
+    if (!t.symbol.endsWith("USDT")) return;
+    const base = t.symbol.slice(0, -4);
+    const rate8h = parseFloat(t.lastFundingRate);
+    out.set(base, { rate: rate8h, aprPct: rate8h * 3 * 365 * 100 });
+  });
+  return out;
+}
+async function fetchBybitFundingBulk() {
+  const d = await fetchJson("https://api.bybit.com/v5/market/tickers?category=linear");
+  const out = new Map();
+  (d.result?.list || []).forEach(t => {
+    if (!t.symbol.endsWith("USDT")) return;
+    const base = t.symbol.slice(0, -4);
+    const rate8h = parseFloat(t.fundingRate);
+    if (isNaN(rate8h)) return;
+    out.set(base, { rate: rate8h, aprPct: rate8h * 3 * 365 * 100 });
+  });
+  return out;
+}
+
+const FUNDING_VENUE_NAMES = { hyperliquid:"Hyperliquid", aster:"Aster", binance:"Binance Futures", bybit:"Bybit Perps" };
+const FUNDING_VENUE_KIND = { hyperliquid:"DEX", aster:"DEX", binance:"CEX", bybit:"CEX" };
+let fundingData = {};
+let fundingLoaded = false;
+
+async function loadFundingData() {
+  const [hl, aster, bin, bybit] = await Promise.allSettled([
+    fetchHyperliquidFunding(), fetchAsterFunding(), fetchBinanceFundingBulk(), fetchBybitFundingBulk(),
+  ]);
+  fundingData = {
+    hyperliquid: hl.status === "fulfilled" ? hl.value : new Map(),
+    aster: aster.status === "fulfilled" ? aster.value : new Map(),
+    binance: bin.status === "fulfilled" ? bin.value : new Map(),
+    bybit: bybit.status === "fulfilled" ? bybit.value : new Map(),
+  };
+  fundingLoaded = true;
+  renderFunding();
+}
+
+function renderFunding() {
+  const main = document.getElementById("fundingMain");
+  if (!fundingLoaded) return;
+
+  const rows = FUNDING_SYMBOLS.map(sym => {
+    const venues = Object.keys(fundingData)
+      .map(v => ({ venue: v, data: fundingData[v].get(sym) }))
+      .filter(v => v.data);
+    if (venues.length < 2) return null;
+    venues.sort((a,b) => a.data.aprPct - b.data.aprPct);
+    const min = venues[0], max = venues[venues.length-1];
+    const diffApr = max.data.aprPct - min.data.aprPct;
+    return { sym, venues, min, max, diffApr };
+  }).filter(Boolean).sort((a,b) => Math.abs(b.diffApr) - Math.abs(a.diffApr));
+
+  if (rows.length === 0) {
+    main.innerHTML = `<div class="empty">Не удалось получить данные funding ни с одной площадки — проверьте соединение.</div>`;
+    return;
+  }
+
+  main.innerHTML = rows.map(r => {
+    const rowsHtml = r.venues.map(v => {
+      const pct = v.data.aprPct;
+      const cls = pct >= 0 ? "pos" : "neg";
+      return `<div class="detailRow">
+        <span><span class="tag ${FUNDING_VENUE_KIND[v.venue].toLowerCase()}">${FUNDING_VENUE_KIND[v.venue]}</span>${FUNDING_VENUE_NAMES[v.venue]}</span>
+        <span class="priceVal ${cls}" style="color:${pct>=0?'var(--up)':'var(--down)'}">${pct>=0?'+':''}${pct.toFixed(1)}% APR</span>
+      </div>`;
+    }).join("");
+    return `<div class="card venueCard">
+      <div class="cardHead">
+        <div>
+          <div class="tokenName">${r.sym}</div>
+          <div class="tokenSources">${r.venues.length} площадок · ${FUNDING_VENUE_NAMES[r.min.venue]} → ${FUNDING_VENUE_NAMES[r.max.venue]}</div>
+        </div>
+        <div class="spreadBadge ${Math.abs(r.diffApr)>=20?'hot':''}">${r.diffApr.toFixed(1)}% APR</div>
+      </div>
+      <div class="detail open" style="display:block">${rowsHtml}</div>
+    </div>`;
+  }).join("");
+}
+
+// --- переключение вкладок ---
+document.getElementById("tabSpreadBtn").addEventListener("click", () => {
+  document.getElementById("tabSpreadBtn").classList.add("active");
+  document.getElementById("tabFundingBtn").classList.remove("active");
+  document.getElementById("tabSpreadPanel").classList.add("active");
+  document.getElementById("tabFundingPanel").classList.remove("active");
+});
+document.getElementById("tabFundingBtn").addEventListener("click", () => {
+  document.getElementById("tabFundingBtn").classList.add("active");
+  document.getElementById("tabSpreadBtn").classList.remove("active");
+  document.getElementById("tabFundingPanel").classList.add("active");
+  document.getElementById("tabSpreadPanel").classList.remove("active");
+  if (!fundingLoaded) loadFundingData();
+});
+
 </script>
 </body>
 </html>

@@ -10,6 +10,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#eef1f6">
+<script>
+  // применяем сохранённую тему ДО отрисовки, чтобы не было мигания светлой темы перед тёмной
+  try {
+    const savedTheme = localStorage.getItem('spreadMonitorTheme');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  } catch(e) {}
+</script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   :root{
@@ -19,10 +26,27 @@
     --accent:#4f46e5;
     --mono: 'SF Mono', 'Roboto Mono', ui-monospace, Menlo, Consolas, monospace;
   }
+  :root[data-theme="dark"]{
+    --bg:#0a0c0f; --panel:rgba(255,255,255,0.06); --panel2:rgba(255,255,255,0.04);
+    --line:rgba(255,255,255,0.09); --text:#eef0f3; --dim:#8b929c;
+    --up:#4fd68a; --down:#ff5c5c; --hot:#ff8a5c; --hot-bg:rgba(255,138,92,0.14);
+    --accent:#7b93ff;
+  }
+  :root[data-theme="dark"] body::before{
+    background:
+      radial-gradient(circle at 12% 18%, rgba(99,102,241,0.22), transparent 42%),
+      radial-gradient(circle at 88% 12%, rgba(255,138,92,0.16), transparent 42%),
+      radial-gradient(circle at 78% 82%, rgba(79,214,138,0.16), transparent 46%),
+      radial-gradient(circle at 15% 85%, rgba(236,72,153,0.14), transparent 42%),
+      var(--bg);
+  }
+  :root[data-theme="dark"] .tag.cex{ color:#8fb4ff; background:rgba(123,147,255,0.16); }
+  :root[data-theme="dark"] .tag.dex{ color:#6ee7a8; background:rgba(79,214,138,0.16); }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{background:var(--bg);}
   body{ margin:0; background:var(--bg); color:var(--text); position:relative; overflow-x:hidden;
-    font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding-bottom:40px; }
+    font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding-bottom:40px;
+    transition:background 0.2s, color 0.2s; }
   body::before{
     content:""; position:fixed; inset:0; z-index:-1;
     background:
@@ -32,8 +56,10 @@
       radial-gradient(circle at 15% 85%, rgba(236,72,153,0.20), transparent 42%),
       var(--bg);
   }
-  header{ position:sticky; top:0; z-index:5; background:rgba(255,255,255,0.55); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%);
-    border-bottom:1px solid var(--line); padding:16px 16px 14px; box-shadow:0 1px 0 rgba(255,255,255,0.6) inset; }
+  :root{ --header-bg:rgba(255,255,255,0.55); --header-shadow:rgba(255,255,255,0.6); }
+  :root[data-theme="dark"]{ --header-bg:rgba(20,23,30,0.55); --header-shadow:rgba(255,255,255,0.05); }
+  header{ position:sticky; top:0; z-index:5; background:var(--header-bg); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%);
+    border-bottom:1px solid var(--line); padding:16px 16px 14px; box-shadow:0 1px 0 var(--header-shadow) inset; }
   h1{font-size:19px; margin:0 0 3px; font-weight:750;}
   .sub{font-size:12px; color:var(--dim);}
   .statusRow{display:flex; align-items:center; gap:8px; margin-top:11px;}
@@ -217,6 +243,7 @@
     <div style="display:flex; gap:6px;">
       <button class="refreshBtn" id="helpBtn" style="margin-left:0;">?</button>
       <button class="refreshBtn" id="shareBtn" style="margin-left:0;">📤</button>
+      <button class="refreshBtn" id="themeBtn" style="margin-left:0;">🌙</button>
     </div>
   </div>
   <div class="sub">CEX vs DEX · только проверенные источники</div>
@@ -255,6 +282,7 @@
       <li><b>Чистыми на $X</b> — оценка прибыли после всех комиссий и газа. Это оценка, не гарантия — тапните на карточку, чтобы увидеть детали.</li>
       <li><b>★</b> — закрепить токен наверху списка. <b>🔥</b> — спред выше вашего порога.</li>
       <li><b>🛡️ Проверить на honeypot</b> — узнать, не окажется ли токен ловушкой, из которой нельзя продать.</li>
+      <li><b>🔍 Это точно один и тот же токен?</b> — проверяет через реестр CoinGecko, не совпадают ли под одним тикером несколько разных, не связанных друг с другом проектов (частая причина завышенного "спреда").</li>
       <li><b>🦊 Открыть в MetaMask</b> — появляется только если Uniswap реально один из источников; принудительно открывает встроенный браузер MetaMask (не сторонний браузер телефона) с этим токеном. Это одна сделка (не связка купить+продать — такой функции у кошельков не существует). Для других DEX используйте ↗ у нужного источника — он ведёт на DexScreener, точно на тот пул.</li>
       <li>Ползунок наверху фильтрует список — остальные настройки спрятаны под «⚙️ Дополнительные настройки».</li>
     </ul>
@@ -386,7 +414,19 @@
   заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
   Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
   На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
-  <br><br><b>Версия: 2025-08-19-9</b> — если у вас с другом это число разное, значит один из
+  Добавлен Hyperliquid Spot — некастодиальная ончейн-биржа со своим ордербуком (не AMM-пул).
+  Котируется в USDC, а не USDT; цены обычно совпадают с точностью до ~0.1%, но это не идентичные активы.
+  🌙/☀️ в шапке переключает светлую/тёмную тему.
+  Также добавлен Aster Spot (отдельная спотовая система, не путать с их фьючерсным API).
+  Lighter проверен и НЕ добавлен — у них только перпетуалы, спота нет.
+  Пары "только между биржами" (без DEX) с менее чем 3 источниками теперь скрыты —
+  с двумя точками невозможно отличить настоящую цену от коллизии тикеров, честнее
+  показать "н/д", чем ложный спред.
+  Binance теперь дополнительно сверяется со своим списком активно торгуемых пар
+  (exchangeInfo) — приостановленные/делистнутые тикеры больше не попадают в сравнение.
+  Кнопка "🔍 Это точно один и тот же токен?" в карточке — проверка тикера через
+  реестр CoinGecko по запросу, помогает выявить коллизии названий вручную.
+  <br><br><b>Версия: 2025-08-19-13</b> — если у вас с другом это число разное, значит один из
   вас открывает старую версию файла, загруженную до этой даты. Обновите репозиторий на GitHub.
 </footer>
 
@@ -425,11 +465,29 @@ async function fetchJson(url, timeoutMs = 8000) {
   }
 }
 
+// кэш активно торгуемых пар с Binance (status === "TRADING") — обновляется раз в
+// несколько циклов, отсекает "зомби"-тикеры (приостановленные/делистнутые пары,
+// по которым API иногда ещё какое-то время отдаёт старую цену).
+let binanceActiveSymbols = null;
+let binanceActiveSymbolsCheckedAt = 0;
+async function refreshBinanceActiveSymbols() {
+  if (Date.now() - binanceActiveSymbolsCheckedAt < 30 * 60 * 1000) return; // не чаще раза в 30 мин
+  try {
+    const d = await fetchJson("https://api.binance.com/api/v3/exchangeInfo", 12000);
+    const set = new Set();
+    (d.symbols || []).forEach(s => { if (s.status === "TRADING") set.add(s.symbol); });
+    binanceActiveSymbols = set;
+    binanceActiveSymbolsCheckedAt = Date.now();
+  } catch (e) { /* оставляем предыдущий кэш при сбое */ }
+}
+
 async function fetchBinanceBulk() {
+  await refreshBinanceActiveSymbols();
   const d = await fetchJson("https://api.binance.com/api/v3/ticker/24hr", 12000);
   const prices = new Map(), volumes = new Map();
   d.forEach(t => {
     if (!t.symbol.endsWith("USDT")) return;
+    if (binanceActiveSymbols && !binanceActiveSymbols.has(t.symbol)) return; // пропускаем неактивные пары
     const base = t.symbol.slice(0, -4);
     prices.set(base, parseFloat(t.lastPrice));
     volumes.set(base, parseFloat(t.quoteVolume) || 0);
@@ -490,13 +548,48 @@ async function fetchCryptocomBulk() {
   });
   return prices;
 }
+// Hyperliquid Spot — некастодиальная ончейн-биржа со своим ордербуком (не AMM-пул,
+// поэтому не через DexScreener). Котируется в USDC, а не USDT — цены обычно совпадают
+// с точностью до ~0.1%, но это не идентичные активы, учитывайте при интерпретации.
+async function fetchHyperliquidSpotBulk() {
+  const d = await fetchJson2("https://api.hyperliquid.xyz/info", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "spotMetaAndAssetCtxs" }),
+  });
+  const [meta, ctxs] = d;
+  const prices = new Map();
+  meta.universe.forEach((pair, i) => {
+    const ctx = ctxs[i];
+    if (!ctx || !ctx.markPx) return;
+    const baseToken = meta.tokens[pair.tokens[0]];
+    const quoteToken = meta.tokens[pair.tokens[1]];
+    if (!baseToken || !quoteToken || quoteToken.name !== "USDC") return;
+    prices.set(baseToken.name, parseFloat(ctx.markPx));
+  });
+  return prices;
+}
+// Aster Spot — отдельная спотовая система на sapi.asterdex.com (не путать с
+// fapi.asterdex.com, который используется только для funding rate/фьючерсов).
+async function fetchAsterSpotBulk() {
+  const d = await fetchJson("https://sapi.asterdex.com/api/v1/ticker/price");
+  const prices = new Map();
+  (d || []).forEach(t => {
+    if (!t.symbol || !t.symbol.endsWith("USDT")) return;
+    prices.set(t.symbol.slice(0, -4), parseFloat(t.price));
+  });
+  return prices;
+}
 
 let bulkPrices = { binance:new Map(), okx:new Map(), bybit:new Map(), gateio:new Map(), mexc:new Map(), coinex:new Map(), cryptocom:new Map() };
+let hyperliquidSpotPrices = new Map();
+let hyperliquidSpotHealth = null;
+let asterSpotPrices = new Map();
+let asterSpotHealth = null;
 let binanceVolumes = new Map();
 
 async function refreshBulkPrices() {
-  const [bin, okx, bybit, gate, mexc, coinex, cryptocom] = await Promise.allSettled([
-    fetchBinanceBulk(), fetchOkxBulk(), fetchBybitBulk(), fetchGateioBulk(), fetchMexcBulk(), fetchCoinexBulk(), fetchCryptocomBulk(),
+  const [bin, okx, bybit, gate, mexc, coinex, cryptocom, hlSpot, asterSpot] = await Promise.allSettled([
+    fetchBinanceBulk(), fetchOkxBulk(), fetchBybitBulk(), fetchGateioBulk(), fetchMexcBulk(), fetchCoinexBulk(), fetchCryptocomBulk(), fetchHyperliquidSpotBulk(), fetchAsterSpotBulk(),
   ]);
   if (bin.status === "fulfilled") { bulkPrices.binance = bin.value.prices; binanceVolumes = bin.value.volumes; exchangeHealth.binance = true; } else exchangeHealth.binance = false;
   if (okx.status === "fulfilled") { bulkPrices.okx = okx.value; exchangeHealth.okx = true; } else exchangeHealth.okx = false;
@@ -505,6 +598,8 @@ async function refreshBulkPrices() {
   if (mexc.status === "fulfilled") { bulkPrices.mexc = mexc.value; exchangeHealth.mexc = true; } else exchangeHealth.mexc = false;
   if (coinex.status === "fulfilled") { bulkPrices.coinex = coinex.value; exchangeHealth.coinex = true; } else exchangeHealth.coinex = false;
   if (cryptocom.status === "fulfilled") { bulkPrices.cryptocom = cryptocom.value; exchangeHealth.cryptocom = true; } else exchangeHealth.cryptocom = false;
+  if (hlSpot.status === "fulfilled") { hyperliquidSpotPrices = hlSpot.value; hyperliquidSpotHealth = true; } else hyperliquidSpotHealth = false;
+  if (asterSpot.status === "fulfilled") { asterSpotPrices = asterSpot.value; asterSpotHealth = true; } else asterSpotHealth = false;
 }
 
 function getCexPrices(token) {
@@ -513,6 +608,10 @@ function getCexPrices(token) {
     const p = bulkPrices[ex]?.get(token.symbol);
     if (p > 0) prices["CEX:" + ex] = p;
   });
+  const hlPrice = hyperliquidSpotPrices.get(token.symbol);
+  if (hlPrice > 0) prices["DEX:hyperliquid"] = hlPrice;
+  const asterPrice = asterSpotPrices.get(token.symbol);
+  if (asterPrice > 0) prices["DEX:asterspot"] = asterPrice;
   return prices;
 }
 
@@ -520,7 +619,7 @@ function getCexPrices(token) {
 // DEX — только проверенные AMM + фильтр мусорных пулов
 // ---------------------------------------------------------------------------
 const DEX_WHITELIST = ["uniswap","pancakeswap","sushiswap","curve","balancer","kyberswap","quickswap","traderjoe","raydium","orca","velodrome","camelot","aerodrome","pangolin","biswap","apeswap","spookyswap","vvsfinance"];
-const DEX_NAMES = { uniswap:"Uniswap", pancakeswap:"PancakeSwap", sushiswap:"SushiSwap", curve:"Curve", balancer:"Balancer", kyberswap:"KyberSwap", quickswap:"QuickSwap", traderjoe:"Trader Joe", raydium:"Raydium", orca:"Orca", velodrome:"Velodrome", camelot:"Camelot", aerodrome:"Aerodrome", pangolin:"Pangolin", biswap:"Biswap", apeswap:"ApeSwap", spookyswap:"SpookySwap", vvsfinance:"VVS Finance" };
+const DEX_NAMES = { uniswap:"Uniswap", pancakeswap:"PancakeSwap", sushiswap:"SushiSwap", curve:"Curve", balancer:"Balancer", kyberswap:"KyberSwap", quickswap:"QuickSwap", traderjoe:"Trader Joe", raydium:"Raydium", orca:"Orca", velodrome:"Velodrome", camelot:"Camelot", aerodrome:"Aerodrome", pangolin:"Pangolin", biswap:"Biswap", apeswap:"ApeSwap", spookyswap:"SpookySwap", vvsfinance:"VVS Finance", hyperliquid:"Hyperliquid Spot", asterspot:"Aster Spot" };
 const MIN_DEX_LIQUIDITY_USD = 20000;
 const MAX_DEVIATION_FROM_CEX = 3;
 
@@ -695,6 +794,39 @@ async function checkHoneypot(symbol, address, chain) {
 }
 
 // ---------------------------------------------------------------------------
+// ПРОВЕРКА "ЭТО ОДИН И ТОТ ЖЕ ПРОЕКТ?" (CoinGecko, по запросу пользователя)
+// Ни одна отдельная биржа не может подтвердить, что "PROS на Binance" и "PROS
+// на OKX" — один и тот же актив (тикеры не уникальны глобально). Для этого
+// нужен независимый реестр — используем публичный поиск CoinGecko. Запрашиваем
+// по требованию (не для всех 400+ токенов разом), чтобы не упереться в лимиты
+// бесплатного API.
+// ---------------------------------------------------------------------------
+const tickerIdentityCache = {};
+async function checkTickerIdentity(symbol) {
+  const resultEl = document.getElementById("ti-" + symbol);
+  if (!resultEl) return;
+  if (tickerIdentityCache[symbol]) { resultEl.innerHTML = tickerIdentityCache[symbol]; return; }
+  resultEl.innerHTML = `<div class="honeypotResult">Ищу совпадения по тикеру…</div>`;
+  try {
+    const d = await fetchJson(`https://api.coingecko.com/api/v3/search?query=${symbol}`);
+    const matches = (d.coins || []).filter(c => c.symbol.toUpperCase() === symbol.toUpperCase()).slice(0, 6);
+    if (matches.length === 0) {
+      const html = `<div class="honeypotResult">CoinGecko не нашёл проектов с тикером ${symbol}. Возможно, это очень новый или нишевый токен — будьте внимательнее.</div>`;
+      tickerIdentityCache[symbol] = html; resultEl.innerHTML = html; return;
+    }
+    if (matches.length === 1) {
+      const html = `<div class="honeypotResult"><span class="ok">✅ Под тикером ${symbol} в реестре CoinGecko только один проект</span>: ${matches[0].name} (ранг по капитализации: ${matches[0].market_cap_rank ?? 'н/д'}).</div>`;
+      tickerIdentityCache[symbol] = html; resultEl.innerHTML = html; return;
+    }
+    const rows = matches.map(c => `${c.name} (ранг: ${c.market_cap_rank ?? 'н/д'})`).join('<br>');
+    const html = `<div class="honeypotResult"><span class="bad">⚠️ Под тикером ${symbol} найдено ${matches.length} разных проектов</span> — высокий риск, что биржи в сравнении показывают РАЗНЫЕ активы:<br>${rows}<br>Проверьте вручную на каждой бирже, какой именно это проект, прежде чем действовать.</div>`;
+    tickerIdentityCache[symbol] = html; resultEl.innerHTML = html;
+  } catch (e) {
+    resultEl.innerHTML = `<div class="honeypotResult">Не удалось получить данные (сервис недоступен или лимит запросов).</div>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ИЗБРАННОЕ
 // ---------------------------------------------------------------------------
 let favorites = new Set();
@@ -736,6 +868,8 @@ const UNISWAP_CHAIN_SLUG = { Ethereum:"ethereum", Arbitrum:"arbitrum", Optimism:
 function openLinkFor(key, symbol, dexAddress) {
   const [kind, name] = key.split(":");
   if (kind === "CEX" && EXCHANGE_TRADE_URL[name]) return EXCHANGE_TRADE_URL[name](symbol);
+  if (kind === "DEX" && name === "hyperliquid") return `https://app.hyperliquid.xyz/trade/${symbol}`;
+  if (kind === "DEX" && name === "asterspot") return `https://www.asterdex.com/en/spot/${symbol}_USDT`;
   if (kind === "DEX" && dexAddress) return `https://dexscreener.com/search?q=${dexAddress}`;
   return null;
 }
@@ -1007,7 +1141,16 @@ async function fetchAllData() {
     const chain = chainFor(token);
     const all = { ...cex, ...dex };
     const sources = Object.entries(all).sort((a,b) => a[1]-b[1]);
-    if (sources.length < 2) return { symbol: token.symbol, chain, sources, insufficient: true, dexAddress: token.dex };
+
+    // Требуем минимум 3 источника для пар "только CEX vs CEX" — с двумя точками
+    // невозможно математически отличить настоящую цену от коллизии тикеров
+    // (один и тот же символ на разных биржах иногда принадлежит разным проектам).
+    // Пары "CEX + DEX" оставляем от 2 источников — там DEX-цена уже проверена
+    // фильтром отклонения от медианы CEX выше.
+    const cexSourceCount = sources.filter(([k]) => k.startsWith("CEX:")).length;
+    const isAllCex = cexSourceCount === sources.length;
+    const notEnoughSources = sources.length < 2 || (isAllCex && sources.length < 3);
+    if (notEnoughSources) return { symbol: token.symbol, chain, sources, insufficient: true, dexAddress: token.dex };
     const [minSrc, minPrice] = sources[0];
     const [maxSrc, maxPrice] = sources[sources.length-1];
     const spread = ((maxPrice - minPrice) / minPrice) * 100;
@@ -1109,9 +1252,11 @@ function render() {
         <div class="actionsRow">
           ${t.dexAddress ? `<button class="miniBtn" onclick="event.stopPropagation(); navigator.clipboard?.writeText('${t.dexAddress}')">📋 Адрес контракта</button>` : ''}
           ${canCheckHp ? `<button class="miniBtn" onclick="event.stopPropagation(); checkHoneypot('${t.symbol}','${t.dexAddress}','${t.chain}')">🛡️ Проверить на honeypot</button>` : ''}
+          <button class="miniBtn" onclick="event.stopPropagation(); checkTickerIdentity('${t.symbol}')">🔍 Это точно один и тот же токен?</button>
           ${swapLink ? `<a class="miniBtn" style="text-decoration:none; display:inline-block" href="${swapLink}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🦊 Открыть в MetaMask</a>` : ''}
         </div>
         <div id="hp-${t.symbol}"></div>
+        <div id="ti-${t.symbol}"></div>
         <div class="sparkWrap">${sparkline(t.symbol)}</div>
       </div>
     </div>`;
@@ -1162,6 +1307,10 @@ function updateExchangeStatus() {
     const dot = ok === false ? "🔴" : ok === true ? "🟢" : "⚪";
     return `${dot} ${EXCHANGE_NAMES[ex]}`;
   });
+  const hlDot = hyperliquidSpotHealth === false ? "🔴" : hyperliquidSpotHealth === true ? "🟢" : "⚪";
+  parts.push(`${hlDot} Hyperliquid Spot`);
+  const asterDot = asterSpotHealth === false ? "🔴" : asterSpotHealth === true ? "🟢" : "⚪";
+  parts.push(`${asterDot} Aster Spot`);
   el.textContent = parts.join("  ·  ");
 
   const downCount = Object.values(exchangeHealth).filter(v => v === false).length;
@@ -1208,6 +1357,21 @@ document.getElementById("intervalSelect").addEventListener("change", (e) => {
 document.getElementById("chainFilter").addEventListener("change", (e) => { chainFilterValue = e.target.value; saveSettings(); render(); });
 
 // сворачивание баннера (макс. спред + статус бирж) — состояние запоминается
+// переключатель светлой/тёмной темы
+(function initThemeToggle() {
+  const btn = document.getElementById("themeBtn");
+  function isDark() { return document.documentElement.getAttribute("data-theme") === "dark"; }
+  function apply() { btn.textContent = isDark() ? "☀️" : "🌙"; }
+  apply();
+  btn.addEventListener("click", () => {
+    const next = isDark() ? "light" : "dark";
+    if (next === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
+    try { localStorage.setItem('spreadMonitorTheme', next); } catch(e) {}
+    apply();
+  });
+})();
+
 (function initBannerToggle() {
   const block = document.getElementById("bannerBlock");
   const btn = document.getElementById("bannerToggleBtn");

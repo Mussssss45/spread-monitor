@@ -388,7 +388,9 @@
     <div class="box">
       <div class="boxLabel"><span>Площадки</span></div>
       <div style="font-size:12.5px; color:var(--dim); line-height:1.7;">
-        <b>Perp DEX:</b> Hyperliquid, Aster &nbsp;·&nbsp; <b>CEX Perps:</b> Binance Futures, Bybit Perps<br>
+        <b>Perp DEX:</b> Hyperliquid, Aster, EVEDEX &nbsp;·&nbsp; <b>CEX Perps:</b> Binance Futures, Bybit Perps<br>
+        EVEDEX — API-эндпоинт не подтверждён на 100% (документация не даёт точного примера запроса);
+        если он недоступен, площадка просто не появится в сравнении.<br>
         Funding нормализован в годовых (APR) для честного сравнения между площадками с разным
         интервалом выплат (Hyperliquid — каждый час, остальные — каждые 8 часов).
       </div>
@@ -401,9 +403,7 @@
 </div>
 
 <footer>
-  CEX (7 бирж): Binance, OKX, Bybit, Gate.io, MEXC, CoinEx — низкие комиссии (~0.1%);
-  Crypto.com добавлен для более широкого покрытия и сверки, но у него базовая комиссия
-  выше (~0.4%, если не стейкать CRO) — учитывайте это в расчёте прибыли.
+  CEX (6 бирж): Binance, OKX, Bybit, Gate.io, MEXC, CoinEx — низкие комиссии (~0.1%). Crypto.com убран из списка.
   Список токенов (до 500) строится динамически — берутся живые топ-500 пар по 24-часовому
   объёму на Binance (без стейблкоинов и плечевых токенов), а не набиты руками.
   DEX (топ-10 реальных AMM): Uniswap, PancakeSwap, SushiSwap, Curve, Balancer, KyberSwap,
@@ -414,19 +414,18 @@
   заметно просевшие отмечены красным. ★ добавляет токен в избранное (сохраняется в этом браузере).
   Метки сетей — ориентировочные. Можно добавить на домашний экран как приложение (Поделиться →
   На экран «Домой» в Safari, или меню браузера → Установить приложение на Android).
-  Добавлен Hyperliquid Spot — некастодиальная ончейн-биржа со своим ордербуком (не AMM-пул).
-  Котируется в USDC, а не USDT; цены обычно совпадают с точностью до ~0.1%, но это не идентичные активы.
+  Добавлен Hyperliquid Spot и Aster Spot — некастодиальные ончейн-биржи со своим ордербуком
+  (не AMM-пулы). Обе теперь проходят тот же фильтр отклонения от медианы CEX, что и обычные
+  DEX-цены — раньше они были исключением из этой проверки, из-за чего иногда проскакивали
+  коллизии тикеров (один символ у разных, не связанных друг с другом проектов).
   🌙/☀️ в шапке переключает светлую/тёмную тему.
-  Также добавлен Aster Spot (отдельная спотовая система, не путать с их фьючерсным API).
-  Lighter проверен и НЕ добавлен — у них только перпетуалы, спота нет.
-  Пары "только между биржами" (без DEX) с менее чем 3 источниками теперь скрыты —
-  с двумя точками невозможно отличить настоящую цену от коллизии тикеров, честнее
-  показать "н/д", чем ложный спред.
-  Binance теперь дополнительно сверяется со своим списком активно торгуемых пар
-  (exchangeInfo) — приостановленные/делистнутые тикеры больше не попадают в сравнение.
-  Кнопка "🔍 Это точно один и тот же токен?" в карточке — проверка тикера через
-  реестр CoinGecko по запросу, помогает выявить коллизии названий вручную.
-  <br><br><b>Версия: 2025-08-19-13</b> — если у вас с другом это число разное, значит один из
+  Пары "только между биржами" (без DEX) с менее чем 3 источниками скрыты — с двумя точками
+  невозможно отличить настоящую цену от коллизии тикеров, честнее показать "н/д", чем
+  ложный спред. Binance дополнительно сверяется со своим списком активно торгуемых пар
+  (exchangeInfo) — приостановленные/делистнутые тикеры не попадают в сравнение. Кнопка
+  "🔍 Это точно один и тот же токен?" в карточке проверяет тикер через реестр CoinGecko.
+  В разделе Funding Rate добавлен EVEDEX (перпетуал-DEX на Arbitrum).
+  <br><br><b>Версия: 2025-08-19-14</b> — если у вас с другом это число разное, значит один из
   вас открывает старую версию файла, загруженную до этой даты. Обновите репозиторий на GitHub.
 </footer>
 
@@ -434,7 +433,7 @@
 // ---------------------------------------------------------------------------
 // БИРЖИ (CEX)
 // ---------------------------------------------------------------------------
-const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", gateio:"Gate.io", mexc:"MEXC", coinex:"CoinEx", cryptocom:"Crypto.com" };
+const EXCHANGE_NAMES = { binance:"Binance", okx:"OKX", bybit:"Bybit", gateio:"Gate.io", mexc:"MEXC", coinex:"CoinEx" };
 const EXCHANGE_TRADE_URL = {
   binance: (b) => `https://www.binance.com/en/trade/${b}_USDT`,
   okx: (b) => `https://www.okx.com/trade-spot/${b.toLowerCase()}-usdt`,
@@ -442,7 +441,6 @@ const EXCHANGE_TRADE_URL = {
   gateio: (b) => `https://www.gate.io/trade/${b}_USDT`,
   mexc: (b) => `https://www.mexc.com/exchange/${b}_USDT`,
   coinex: (b) => `https://www.coinex.com/exchange/${b.toLowerCase()}-usdt`,
-  cryptocom: (b) => `https://crypto.com/exchange/trade/spot/${b}_USDT`,
 };
 const exchangeHealth = {}; // binance:true/false и т.д. — для индикатора статуса
 
@@ -539,18 +537,6 @@ async function fetchCoinexBulk() {
   });
   return prices;
 }
-async function fetchCryptocomBulk() {
-  const d = await fetchJson("https://api.crypto.com/exchange/v1/public/get-tickers");
-  const prices = new Map();
-  (d.result?.data || []).forEach(t => {
-    if (!t.i || !t.i.endsWith("_USDT")) return;
-    prices.set(t.i.replace("_USDT",""), parseFloat(t.a));
-  });
-  return prices;
-}
-// Hyperliquid Spot — некастодиальная ончейн-биржа со своим ордербуком (не AMM-пул,
-// поэтому не через DexScreener). Котируется в USDC, а не USDT — цены обычно совпадают
-// с точностью до ~0.1%, но это не идентичные активы, учитывайте при интерпретации.
 async function fetchHyperliquidSpotBulk() {
   const d = await fetchJson2("https://api.hyperliquid.xyz/info", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -580,7 +566,7 @@ async function fetchAsterSpotBulk() {
   return prices;
 }
 
-let bulkPrices = { binance:new Map(), okx:new Map(), bybit:new Map(), gateio:new Map(), mexc:new Map(), coinex:new Map(), cryptocom:new Map() };
+let bulkPrices = { binance:new Map(), okx:new Map(), bybit:new Map(), gateio:new Map(), mexc:new Map(), coinex:new Map() };
 let hyperliquidSpotPrices = new Map();
 let hyperliquidSpotHealth = null;
 let asterSpotPrices = new Map();
@@ -588,8 +574,8 @@ let asterSpotHealth = null;
 let binanceVolumes = new Map();
 
 async function refreshBulkPrices() {
-  const [bin, okx, bybit, gate, mexc, coinex, cryptocom, hlSpot, asterSpot] = await Promise.allSettled([
-    fetchBinanceBulk(), fetchOkxBulk(), fetchBybitBulk(), fetchGateioBulk(), fetchMexcBulk(), fetchCoinexBulk(), fetchCryptocomBulk(), fetchHyperliquidSpotBulk(), fetchAsterSpotBulk(),
+  const [bin, okx, bybit, gate, mexc, coinex, hlSpot, asterSpot] = await Promise.allSettled([
+    fetchBinanceBulk(), fetchOkxBulk(), fetchBybitBulk(), fetchGateioBulk(), fetchMexcBulk(), fetchCoinexBulk(), fetchHyperliquidSpotBulk(), fetchAsterSpotBulk(),
   ]);
   if (bin.status === "fulfilled") { bulkPrices.binance = bin.value.prices; binanceVolumes = bin.value.volumes; exchangeHealth.binance = true; } else exchangeHealth.binance = false;
   if (okx.status === "fulfilled") { bulkPrices.okx = okx.value; exchangeHealth.okx = true; } else exchangeHealth.okx = false;
@@ -597,7 +583,6 @@ async function refreshBulkPrices() {
   if (gate.status === "fulfilled") { bulkPrices.gateio = gate.value; exchangeHealth.gateio = true; } else exchangeHealth.gateio = false;
   if (mexc.status === "fulfilled") { bulkPrices.mexc = mexc.value; exchangeHealth.mexc = true; } else exchangeHealth.mexc = false;
   if (coinex.status === "fulfilled") { bulkPrices.coinex = coinex.value; exchangeHealth.coinex = true; } else exchangeHealth.coinex = false;
-  if (cryptocom.status === "fulfilled") { bulkPrices.cryptocom = cryptocom.value; exchangeHealth.cryptocom = true; } else exchangeHealth.cryptocom = false;
   if (hlSpot.status === "fulfilled") { hyperliquidSpotPrices = hlSpot.value; hyperliquidSpotHealth = true; } else hyperliquidSpotHealth = false;
   if (asterSpot.status === "fulfilled") { asterSpotPrices = asterSpot.value; asterSpotHealth = true; } else asterSpotHealth = false;
 }
@@ -608,6 +593,15 @@ function getCexPrices(token) {
     const p = bulkPrices[ex]?.get(token.symbol);
     if (p > 0) prices["CEX:" + ex] = p;
   });
+  return prices;
+}
+// Hyperliquid Spot и Aster Spot — площадки с почти без ограничений (permissionless)
+// листингом токенов, где коллизия тикеров (один символ = разные проекты) — частый
+// случай. Возвращаем ОТДЕЛЬНО от настоящих CEX, чтобы они прошли через тот же
+// санити-фильтр отклонения от медианы, что и обычные DEX-цены — иначе (как было
+// раньше) они проскакивали мимо защиты от коллизий тикеров.
+function getExtraVenuePrices(token) {
+  const prices = {};
   const hlPrice = hyperliquidSpotPrices.get(token.symbol);
   if (hlPrice > 0) prices["DEX:hyperliquid"] = hlPrice;
   const asterPrice = asterSpotPrices.get(token.symbol);
@@ -698,7 +692,7 @@ function applyTelegramTheme() {
 // РАСЧЁТ ЧИСТОЙ ПРИБЫЛИ (оценка)
 // ---------------------------------------------------------------------------
 const CEX_TAKER_FEE_DEFAULT = 0.001;  // ~0.10% — большинство бирж из списка
-const CEX_TAKER_FEE_OVERRIDES = { cryptocom: 0.004 }; // Crypto.com: ~0.40% на базовом тарифе без стейкинга CRO
+const CEX_TAKER_FEE_OVERRIDES = {}; // на случай будущих бирж с нестандартной комиссией
 const DEX_SWAP_FEE = 0.003;       // ~0.30% (типично для AMM-пула)
 const AVG_SLIPPAGE = 0.002;       // ~0.20%
 // живая цена газа вместо захардкоженной константы — обновляется раз в цикл обновления
@@ -716,7 +710,10 @@ async function refreshLiveGas() {
     const gasPriceWei = parseInt(rpcResult.result, 16);
     const gasPriceGwei = gasPriceWei / 1e9;
     const ethPriceUsd = bulkPrices.binance?.get("ETH") || 3000;
-    liveEthGasCostUsd = (gasPriceGwei * 1e9 * CHAIN_GAS_UNITS_SWAP / 1e18) * ethPriceUsd;
+    const computed = (gasPriceGwei * 1e9 * CHAIN_GAS_UNITS_SWAP / 1e18) * ethPriceUsd;
+    // защита: если ответ RPC пришёл в неожиданном формате, parseInt тихо даёт NaN
+    // без исключения — не даём испорченному значению просочиться в расчёт прибыли
+    if (!isNaN(computed) && computed > 0) liveEthGasCostUsd = computed;
   } catch (e) {
     // оставляем предыдущее известное значение при сбое запроса
   }
@@ -733,7 +730,7 @@ async function fetchJson2(url, options, timeoutMs = 8000) {
 }
 
 function gasForChain(chain) {
-  if (chain === "Ethereum") return liveEthGasCostUsd;
+  if (chain === "Ethereum") return (isNaN(liveEthGasCostUsd) || liveEthGasCostUsd <= 0) ? 8 : liveEthGasCostUsd;
   return CHAIN_GAS_USD_STATIC[chain] ?? 1;
 }
 
@@ -748,12 +745,14 @@ function estimateNetProfit(t, tradeSize) {
   const buyFeePct = buyIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : cexFee(t.minSrc);
   const sellFeePct = sellIsDex ? (DEX_SWAP_FEE + AVG_SLIPPAGE) : cexFee(t.maxSrc);
   let gas = 0;
-  const gasPerLeg = gasForChain(t.chain);
+  let gasPerLeg = gasForChain(t.chain);
+  if (isNaN(gasPerLeg) || gasPerLeg < 0) gasPerLeg = 1; // защита от испорченных данных
   if (buyIsDex) gas += gasPerLeg;
   if (sellIsDex) gas += gasPerLeg;
   const gross = tradeSize * (t.spread / 100);
   const feesCost = tradeSize * (buyFeePct + sellFeePct) + gas;
   const net = gross - feesCost;
+  if (isNaN(net)) return { net: 0, netPct: 0, feesCost: 0, gas: 0, broken: true };
   return { net, netPct: (net / tradeSize) * 100, feesCost, gas };
 }
 
@@ -1113,12 +1112,12 @@ async function fetchAllData() {
   const results = await Promise.all(TOKENS.map(async (token) => {
     const cex = getCexPrices(token);
     const dex = token.dex ? await getDexPrices(token.dex) : {};
+    // Hyperliquid/Aster Spot объединяем с AMM-ценами — они проходят ОДИНАКОВУЮ
+    // проверку на отклонение от медианы CEX ниже, независимо от источника.
+    const extraVenues = getExtraVenuePrices(token);
+    Object.assign(dex, extraVenues);
 
-    // санити-фильтр №1: коллизия тикеров между CEX. Один и тот же символ
-    // (например "DATA") иногда используют совершенно разные, никак не
-    // связанные проекты на разных биржах — тогда "спред" получается
-    // бессмысленным (тысячи процентов). При 3+ источниках отбрасываем те,
-    // что сильно выбиваются из медианы среди самих CEX.
+    // санити-фильтр №1: коллизия тикеров между самими CEX (3+ источника)
     let cexValsRaw = Object.values(cex);
     if (cexValsRaw.length >= 3) {
       const cexMedian = median(cexValsRaw);
@@ -1128,7 +1127,7 @@ async function fetchAllData() {
       });
     }
 
-    // санити-фильтр №2: DEX-цена не должна аномально отличаться от CEX
+    // санити-фильтр №2: DEX/Hyperliquid/Aster-цена не должна аномально отличаться от CEX
     const cexVals = Object.values(cex);
     if (cexVals.length) {
       const m = median(cexVals);
@@ -1149,7 +1148,12 @@ async function fetchAllData() {
     // фильтром отклонения от медианы CEX выше.
     const cexSourceCount = sources.filter(([k]) => k.startsWith("CEX:")).length;
     const isAllCex = cexSourceCount === sources.length;
-    const notEnoughSources = sources.length < 2 || (isAllCex && sources.length < 3);
+    // "рискованные" площадки — своя, слабо модерируемая листинг-политика (риск коллизии тикера);
+    // если ВСЕ источники такие и нет ни одной настоящей CEX или проверенного AMM — сравнение
+    // ничем не подтверждено, отбрасываем.
+    const riskyKeys = new Set(["DEX:hyperliquid", "DEX:asterspot"]);
+    const hasAnchor = sources.some(([k]) => k.startsWith("CEX:") || (k.startsWith("DEX:") && !riskyKeys.has(k)));
+    const notEnoughSources = sources.length < 2 || (isAllCex && sources.length < 3) || !hasAnchor;
     if (notEnoughSources) return { symbol: token.symbol, chain, sources, insufficient: true, dexAddress: token.dex };
     const [minSrc, minPrice] = sources[0];
     const [maxSrc, maxPrice] = sources[sources.length-1];
@@ -1526,22 +1530,45 @@ async function fetchBybitFundingBulk() {
   });
   return out;
 }
+// EVEDEX — перпетуал-DEX на Arbitrum L3. Публичный API подтверждён по документации
+// (docs.evedex.com), но точный базовый домен REST-эндпоинта не удалось стопроцентно
+// подтвердить (в доках нет прямого curl-примера) — используем самый вероятный по
+// конвенции остальных их поддоменов. Если домен неверный — запрос просто не пройдёт
+// (индикатор станет красным), это не может испортить остальные данные.
+async function fetchEvedexFunding() {
+  const d = await fetchJson("https://api.evedex.com/api/market/instrument?fields=metrics");
+  const out = new Map();
+  (Array.isArray(d) ? d : d.data || d.result || []).forEach(t => {
+    const name = t.name || t.displayName || "";
+    if (!name.endsWith("USDT") && !name.endsWith("USD")) return;
+    const base = name.replace(/USDT?$/, "");
+    const rate = parseFloat(t.fundingRate ?? t.funding);
+    if (isNaN(rate)) return;
+    // период выплат EVEDEX точно не подтверждён документацией — считаем как 8ч (стандарт для большинства перпов),
+    // это единственное отличие от Hyperliquid (у него подтверждённо часовой funding)
+    out.set(base, { rate, aprPct: rate * 3 * 365 * 100 });
+  });
+  return out;
+}
 
-const FUNDING_VENUE_NAMES = { hyperliquid:"Hyperliquid", aster:"Aster", binance:"Binance Futures", bybit:"Bybit Perps" };
-const FUNDING_VENUE_KIND = { hyperliquid:"DEX", aster:"DEX", binance:"CEX", bybit:"CEX" };
+const FUNDING_VENUE_NAMES = { hyperliquid:"Hyperliquid", aster:"Aster", binance:"Binance Futures", bybit:"Bybit Perps", evedex:"EVEDEX" };
+const FUNDING_VENUE_KIND = { hyperliquid:"DEX", aster:"DEX", binance:"CEX", bybit:"CEX", evedex:"DEX" };
 let fundingData = {};
 let fundingLoaded = false;
+let evedexHealth = null;
 
 async function loadFundingData() {
-  const [hl, aster, bin, bybit] = await Promise.allSettled([
-    fetchHyperliquidFunding(), fetchAsterFunding(), fetchBinanceFundingBulk(), fetchBybitFundingBulk(),
+  const [hl, aster, bin, bybit, evedex] = await Promise.allSettled([
+    fetchHyperliquidFunding(), fetchAsterFunding(), fetchBinanceFundingBulk(), fetchBybitFundingBulk(), fetchEvedexFunding(),
   ]);
   fundingData = {
     hyperliquid: hl.status === "fulfilled" ? hl.value : new Map(),
     aster: aster.status === "fulfilled" ? aster.value : new Map(),
     binance: bin.status === "fulfilled" ? bin.value : new Map(),
     bybit: bybit.status === "fulfilled" ? bybit.value : new Map(),
+    evedex: evedex.status === "fulfilled" ? evedex.value : new Map(),
   };
+  evedexHealth = evedex.status === "fulfilled";
   fundingLoaded = true;
   renderFunding();
 }
